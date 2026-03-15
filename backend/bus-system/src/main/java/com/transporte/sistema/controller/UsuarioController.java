@@ -1,0 +1,123 @@
+package com.transporte.sistema.controller;
+
+import com.transporte.sistema.dto.request.UsuarioRequest;
+import com.transporte.sistema.dto.response.ApiResponse;
+import com.transporte.sistema.entity.Rol;
+import com.transporte.sistema.entity.Sucursal;
+import com.transporte.sistema.entity.Usuario;
+import com.transporte.sistema.exception.ConflictoException;
+import com.transporte.sistema.exception.RecursoNoEncontradoException;
+import com.transporte.sistema.repository.RolRepository;
+import com.transporte.sistema.repository.SucursalRepository;
+import com.transporte.sistema.repository.UsuarioRepository;
+import jakarta.validation.Valid;
+import lombok.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * Gestión de usuarios del sistema (empleados).
+ * Solo ADMIN puede crear/modificar usuarios.
+ */
+@RestController
+@RequestMapping("/api/v1/usuarios")
+@RequiredArgsConstructor
+public class UsuarioController {
+
+    private final UsuarioRepository usuarioRepository;
+    private final RolRepository rolRepository;
+    private final SucursalRepository sucursalRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UsuarioResponse>> listar() {
+        return ResponseEntity.ok(
+                usuarioRepository.findAll().stream()
+                        .filter(u -> u.getActivo() != null && u.getActivo())
+                        .map(this::toResponse).toList());
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UsuarioResponse> obtener(@PathVariable Long id) {
+        return ResponseEntity.ok(toResponse(obtenerEntidad(id)));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody UsuarioRequest request) {
+        if (usuarioRepository.existsByUsername(request.getUsername()))
+            throw new ConflictoException("El username ya está en uso: " + request.getUsername());
+        if (request.getEmail() != null && usuarioRepository.existsByEmail(request.getEmail()))
+            throw new ConflictoException("El email ya está en uso: " + request.getEmail());
+
+        Rol rol = rolRepository.findById(request.getRolId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Rol", request.getRolId()));
+        Sucursal sucursal = null;
+        if (request.getSucursalId() != null) {
+            sucursal = sucursalRepository.findById(request.getSucursalId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Sucursal", request.getSucursalId()));
+        }
+
+        Usuario usuario = Usuario.builder()
+                .username(request.getUsername())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .nombres(request.getNombres())
+                .apellidos(request.getApellidos())
+                .email(request.getEmail())
+                .telefono(request.getTelefono())
+                .rol(rol)
+                .sucursal(sucursal)
+                .dniRuc(request.getDniRuc())
+                .primerLogin(true)
+                .activo(true)
+                .build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(usuarioRepository.save(usuario)));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
+        Usuario u = obtenerEntidad(id);
+        u.softDelete();
+        usuarioRepository.save(u);
+        return ResponseEntity.ok(ApiResponse.ok("Usuario eliminado", null));
+    }
+
+    private Usuario obtenerEntidad(Long id) {
+        return usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", id));
+    }
+
+    private UsuarioResponse toResponse(Usuario u) {
+        return UsuarioResponse.builder()
+                .id(u.getId()).username(u.getUsername())
+                .nombres(u.getNombres()).apellidos(u.getApellidos())
+                .email(u.getEmail()).telefono(u.getTelefono())
+                .rol(u.getRol().getNombre().name())
+                .sucursalId(u.getSucursal() != null ? u.getSucursal().getId() : null)
+                .sucursalNombre(u.getSucursal() != null ? u.getSucursal().getNombre() : null)
+                .activo(u.getActivo()).build();
+    }
+
+    /** DTO de respuesta interno al controller */
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    static class UsuarioResponse {
+        private Long id;
+        private String username;
+        private String nombres;
+        private String apellidos;
+        private String email;
+        private String telefono;
+        private String rol;
+        private Long sucursalId;
+        private String sucursalNombre;
+        private Boolean activo;
+    }
+}

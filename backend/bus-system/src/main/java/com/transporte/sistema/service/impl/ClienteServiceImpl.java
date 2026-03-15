@@ -1,0 +1,139 @@
+package com.transporte.sistema.service.impl;
+
+import com.transporte.sistema.dto.request.ClienteRequest;
+import com.transporte.sistema.dto.response.ClienteResponse;
+import com.transporte.sistema.entity.Cliente;
+import com.transporte.sistema.exception.ConflictoException;
+import com.transporte.sistema.exception.RecursoNoEncontradoException;
+import com.transporte.sistema.repository.ClienteRepository;
+import com.transporte.sistema.service.ClienteService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ClienteServiceImpl implements ClienteService {
+
+    private final ClienteRepository clienteRepository;
+
+    @Override
+    @Transactional
+    public ClienteResponse crear(ClienteRequest request) {
+        if (clienteRepository.existsByDniRuc(request.getDniRuc())) {
+            throw new ConflictoException("Ya existe un cliente con DNI/RUC: " + request.getDniRuc());
+        }
+        Cliente cliente = toEntity(request);
+        Cliente guardado = clienteRepository.save(cliente);
+        log.info("Cliente creado: {} - {}", guardado.getId(), guardado.getDniRuc());
+        return toResponse(guardado);
+    }
+
+    @Override
+    @Transactional
+    public ClienteResponse actualizar(Long id, ClienteRequest request) {
+        Cliente cliente = obtenerEntidad(id);
+        // Si cambió el DNI/RUC, verificar que no esté en uso
+        if (!cliente.getDniRuc().equals(request.getDniRuc()) &&
+                clienteRepository.existsByDniRuc(request.getDniRuc())) {
+            throw new ConflictoException("DNI/RUC ya está en uso: " + request.getDniRuc());
+        }
+        actualizarDesdeRequest(cliente, request);
+        return toResponse(clienteRepository.save(cliente));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClienteResponse obtenerPorId(Long id) {
+        return toResponse(obtenerEntidad(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClienteResponse obtenerPorDniRuc(String dniRuc) {
+        Cliente cliente = clienteRepository.findByDniRuc(dniRuc)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Cliente con DNI/RUC " + dniRuc + " no encontrado"));
+        return toResponse(cliente);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClienteResponse> buscar(String query, Pageable pageable) {
+        return clienteRepository.buscarPorNombreODocumento(query, pageable)
+                .map(this::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClienteResponse> listarTodos(Pageable pageable) {
+        return clienteRepository.findAll(pageable).map(this::toResponse);
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(Long id) {
+        Cliente cliente = obtenerEntidad(id);
+        cliente.softDelete();
+        clienteRepository.save(cliente);
+        log.info("Cliente {} eliminado (soft delete)", id);
+    }
+
+    // --- Helpers ---
+
+    private Cliente obtenerEntidad(Long id) {
+        return clienteRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Cliente", id));
+    }
+
+    private Cliente toEntity(ClienteRequest r) {
+        return Cliente.builder()
+                .dniRuc(r.getDniRuc())
+                .nombres(r.getNombres())
+                .apellidos(r.getApellidos())
+                .razonSocial(r.getRazonSocial())
+                .telefono(r.getTelefono())
+                .email(r.getEmail())
+                .direccion(r.getDireccion())
+                .distrito(r.getDistrito())
+                .ciudad(r.getCiudad())
+                .tipoCliente(r.getTipoCliente())
+                .activo(true)
+                .build();
+    }
+
+    private void actualizarDesdeRequest(Cliente c, ClienteRequest r) {
+        c.setDniRuc(r.getDniRuc());
+        c.setNombres(r.getNombres());
+        c.setApellidos(r.getApellidos());
+        c.setRazonSocial(r.getRazonSocial());
+        c.setTelefono(r.getTelefono());
+        c.setEmail(r.getEmail());
+        c.setDireccion(r.getDireccion());
+        c.setDistrito(r.getDistrito());
+        c.setCiudad(r.getCiudad());
+        c.setTipoCliente(r.getTipoCliente());
+    }
+
+    public ClienteResponse toResponse(Cliente c) {
+        return ClienteResponse.builder()
+                .id(c.getId())
+                .dniRuc(c.getDniRuc())
+                .nombres(c.getNombres())
+                .apellidos(c.getApellidos())
+                .razonSocial(c.getRazonSocial())
+                .nombreCompleto(c.getNombreCompleto())
+                .telefono(c.getTelefono())
+                .email(c.getEmail())
+                .direccion(c.getDireccion())
+                .distrito(c.getDistrito())
+                .ciudad(c.getCiudad())
+                .tipoCliente(c.getTipoCliente())
+                .createdAt(c.getCreatedAt())
+                .build();
+    }
+}
