@@ -5,7 +5,8 @@ import "./App.css";
 const DESTINOS = [
   {
     nombre: "Vilcas Huaman",
-    ImageBitmapRenderingContext: ,
+    imagen: "/assets/img/rutas/vilcas.jpg",
+    emoji: "🏛️",
     color: "#8AA6A3",
     region: "Ayacucho",
     duracion: "Local",
@@ -17,11 +18,12 @@ const DESTINOS = [
     ],
     terminales: [
       { nombre: "Terminal del Sur Madre Covadonga", dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas", tipo: "ORIGEN" },
-      { nombre: "Terminal Jr. Lima",      dir: "Jr. Lima 350, Ayacucho",              horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
+      { nombre: "Terminal Jr. Lima",                dir: "Jr. Lima 350, Ayacucho",         horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Abancay",
+    imagen: "/assets/img/rutas/abancay.jpg",
     emoji: "🌿",
     color: "#127369",
     region: "Apurímac",
@@ -36,12 +38,13 @@ const DESTINOS = [
       { hora: "21:00", tipo: "Nocturno", precio: "S/ 45–55" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",   dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",      tipo: "ORIGEN"  },
-      { nombre: "Terminal Terrestre Abancay", dir: "Av. Pachacútec 378, Abancay",         horario: "Lun–Dom: 8AM – 10PM", tipo: "DESTINO" },
+      { nombre: "Terrapuerto Plaza Wari",     dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",     tipo: "ORIGEN"  },
+      { nombre: "Terminal Terrestre Abancay", dir: "Av. Pachacútec 378, Abancay",          horario: "Lun–Dom: 8AM – 10PM", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Arequipa",
+    imagen: "/assets/img/rutas/arequipa.jpg",
     emoji: "🏔️",
     color: "#4C5958",
     region: "Arequipa",
@@ -53,12 +56,13 @@ const DESTINOS = [
       { hora: "20:00", tipo: "Nocturno", precio: "S/ 70–90" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",       dir: "Av. Pérez de Cuéllar 2263, Ayacucho",  horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
-      { nombre: "Terminal Terrestre Arequipa",  dir: "Av. Andrés Avelino Cáceres, Arequipa", horario: "Abierto 24 horas",  tipo: "DESTINO" },
+      { nombre: "Terrapuerto Plaza Wari",      dir: "Av. Pérez de Cuéllar 2263, Ayacucho",  horario: "Abierto 24 horas", tipo: "ORIGEN"  },
+      { nombre: "Terminal Terrestre Arequipa", dir: "Av. Andrés Avelino Cáceres, Arequipa", horario: "Abierto 24 horas", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Camaná",
+    imagen: "/assets/img/rutas/camana.jpg",
     emoji: "🌊",
     color: "#10403B",
     region: "Arequipa",
@@ -69,12 +73,13 @@ const DESTINOS = [
       { hora: "20:00", tipo: "Nocturno", precio: "S/ 75–95" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
+      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
       { nombre: "Terminal Camaná",        dir: "Av. Lima s/n, Camaná, Arequipa",      horario: "8:00 AM – 9:00 PM", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Lima",
+    imagen: "/assets/img/rutas/lima.jpg",
     emoji: "🏙️",
     color: "#4C5958",
     region: "Lima",
@@ -87,12 +92,13 @@ const DESTINOS = [
       { hora: "22:00", tipo: "Nocturno", precio: "S/ 65–85" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",  dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
-      { nombre: "Terminal Plaza Norte",    dir: "Av. Túpac Amaru 3069, Lima",           horario: "Abierto 24 horas",  tipo: "DESTINO" },
+      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas", tipo: "ORIGEN"  },
+      { nombre: "Terminal Plaza Norte",   dir: "Av. Túpac Amaru 3069, Lima",           horario: "Abierto 24 horas", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Cusco",
+    imagen: "/assets/img/rutas/cusco.jpg",
     emoji: "🏺",
     color: "#127369",
     region: "Cusco",
@@ -103,12 +109,13 @@ const DESTINOS = [
       { hora: "19:00", tipo: "Nocturno", precio: "S/ 60–80" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",    dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
-      { nombre: "Terminal Terrestre Cusco",  dir: "Av. Velasco Astete s/n, Cusco",        horario: "Abierto 24 horas",  tipo: "DESTINO" },
+      { nombre: "Terrapuerto Plaza Wari",   dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas", tipo: "ORIGEN"  },
+      { nombre: "Terminal Terrestre Cusco", dir: "Av. Velasco Astete s/n, Cusco",        horario: "Abierto 24 horas", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Ica",
+    imagen: "/assets/img/rutas/ica.jpg",
     emoji: "🏜️",
     color: "#8AA6A3",
     region: "Ica",
@@ -119,12 +126,13 @@ const DESTINOS = [
       { hora: "20:00", tipo: "Nocturno", precio: "S/ 45–60" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
+      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
       { nombre: "Terminal Ica",           dir: "Prolongación Lambayeque 180, Ica",    horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
     ],
   },
   {
     nombre: "Andahuaylas",
+    imagen: "/assets/img/rutas/andahuaylas.jpg",
     emoji: "⛰️",
     color: "#10403B",
     region: "Apurímac",
@@ -137,8 +145,8 @@ const DESTINOS = [
       { hora: "18:00", tipo: "Nocturno", precio: "S/ 30–40" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",      dir: "Av. Pérez de Cuéllar 2263, Ayacucho",   horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
-      { nombre: "Terminal Andahuaylas",         dir: "Av. Martinelli s/n, Andahuaylas",         horario: "7:00 AM – 9:00 PM",  tipo: "DESTINO" },
+      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
+      { nombre: "Terminal Andahuaylas",   dir: "Av. Martinelli s/n, Andahuaylas",      horario: "7:00 AM – 9:00 PM", tipo: "DESTINO" },
     ],
   },
 ];
@@ -177,7 +185,6 @@ function ModalHorarios({ destino, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="modal-header">
           <div className="modal-badge">{destino.emoji}</div>
           <div>
@@ -186,18 +193,12 @@ function ModalHorarios({ destino, onClose }) {
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-
-        {/* Body */}
         <div className="modal-body">
-          {/* Info chips */}
           <div className="modal-info-row">
             <div className="modal-chip">⏱ Duración: <strong>{destino.duracion}</strong></div>
             <div className="modal-chip">📏 Distancia: <strong>{destino.distancia}</strong></div>
           </div>
-
           <hr className="modal-divider" />
-
-          {/* Horarios */}
           <div className="modal-section-label">Horarios de salida — Ayacucho → {destino.nombre}</div>
           <div className="horarios-grid">
             {destino.horarios.map((h, i) => (
@@ -208,10 +209,7 @@ function ModalHorarios({ destino, onClose }) {
               </div>
             ))}
           </div>
-
           <hr className="modal-divider" />
-
-          {/* Terminales */}
           <div className="modal-section-label">Terminales</div>
           <div className="terminales-list">
             {destino.terminales.map((t, i) => (
@@ -226,7 +224,6 @@ function ModalHorarios({ destino, onClose }) {
               </div>
             ))}
           </div>
-
           <button className="btn-reservar" onClick={onClose}>
             Reservar pasaje
           </button>
@@ -335,12 +332,21 @@ export default function App() {
         <div className="destinos-grid">
           {destinosFiltrados.map((d) => (
             <div className="destino-card" key={d.nombre}>
-              <div
-                className="destino-img-placeholder"
-                style={{ background: `${d.color}22`, borderBottom: `2px solid ${d.color}33` }}
-              >
-                {d.emoji}
+
+              {/* 👇 IMAGEN REEMPLAZA AL PLACEHOLDER */}
+              <div className="destino-img-wrapper">
+                <img
+                  src={d.imagen}
+                  alt={d.nombre}
+                  className="destino-img"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.parentNode.style.background = `${d.color}33`;
+                  }}
+                />
+                {d.emoji && <span className="destino-emoji-overlay">{d.emoji}</span>}
               </div>
+
               <div className="destino-body">
                 <div className="destino-name">{d.nombre}</div>
                 <button

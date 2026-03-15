@@ -680,3 +680,31 @@ footer strong {
   .search-divider { width: 100%; height: 1px; }
   .btn-buscar { width: 100%; }
 }
+.destino-img-wrapper {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+  background: #e0e8e7;
+}
+
+.destino-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+  display: block;
+}
+
+.destino-card:hover .destino-img {
+  transform: scale(1.06);
+}
+
+.destino-emoji-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 1.5rem;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+  pointer-events: none;
+}
