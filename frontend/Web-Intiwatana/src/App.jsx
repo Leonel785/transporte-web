@@ -18,15 +18,15 @@ const DESTINOS = [
     ],
     terminales: [
       { nombre: "Terminal del Sur Madre Covadonga", dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas", tipo: "ORIGEN" },
-      { nombre: "Terminal Jr. Lima",                dir: "Jr. Lima 350, Ayacucho",         horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
+      { nombre: "Agencia de Vilcas Huaman",                dir: "Jr. Lima 350, Ayacucho",         horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Abancay",
-    imagen: "/assets/img/rutas/abancay.jpg",
+    nombre: "Accomarca",
+    imagen: "/assets/img/rutas/accomarca.jpeg",
     emoji: "🌿",
     color: "#127369",
-    region: "Apurímac",
+    region: "Ayacucho",
     duracion: "~8h 30min",
     distancia: "~340 km",
     horarios: [
@@ -38,16 +38,16 @@ const DESTINOS = [
       { hora: "21:00", tipo: "Nocturno", precio: "S/ 45–55" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",     dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",     tipo: "ORIGEN"  },
-      { nombre: "Terminal Terrestre Abancay", dir: "Av. Pachacútec 378, Abancay",          horario: "Lun–Dom: 8AM – 10PM", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga",     dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas",     tipo: "ORIGEN"  },
+      { nombre: "Agencia de Accomarca", dir: "Av. Pachacútec 378, Abancay",          horario: "Lun–Dom: 8AM – 10PM", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Arequipa",
-    imagen: "/assets/img/rutas/arequipa.jpg",
+    nombre: "Huarcas",
+    imagen: "/assets/img/rutas/huarcas.jpeg",
     emoji: "🏔️",
     color: "#4C5958",
-    region: "Arequipa",
+    region: "Ayacucho",
     duracion: "~14h",
     distancia: "~570 km",
     horarios: [
@@ -56,16 +56,16 @@ const DESTINOS = [
       { hora: "20:00", tipo: "Nocturno", precio: "S/ 70–90" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",      dir: "Av. Pérez de Cuéllar 2263, Ayacucho",  horario: "Abierto 24 horas", tipo: "ORIGEN"  },
-      { nombre: "Terminal Terrestre Arequipa", dir: "Av. Andrés Avelino Cáceres, Arequipa", horario: "Abierto 24 horas", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga",      dir: "Av. Cusco 362, Ayacucho 05003",  horario: "Abierto 24 horas", tipo: "ORIGEN"  },
+      { nombre: "Agencia de Huarcas", dir: "Av. Andrés Avelino Cáceres, Arequipa", horario: "Abierto 24 horas", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Camaná",
-    imagen: "/assets/img/rutas/camana.jpg",
+    nombre: "Pongococha",
+    imagen: "/assets/img/rutas/pongococha.jpeg",
     emoji: "🌊",
     color: "#10403B",
-    region: "Arequipa",
+    region: "Ayacucho",
     duracion: "~16h",
     distancia: "~650 km",
     horarios: [
@@ -73,17 +73,17 @@ const DESTINOS = [
       { hora: "20:00", tipo: "Nocturno", precio: "S/ 75–95" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
-      { nombre: "Terminal Camaná",        dir: "Av. Lima s/n, Camaná, Arequipa",      horario: "8:00 AM – 9:00 PM", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga", dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
+      { nombre: "Agencia de Pongococha",        dir: "Av. Lima s/n, Camaná, Arequipa",      horario: "8:00 AM – 9:00 PM", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Lima",
-    imagen: "/assets/img/rutas/lima.jpg",
+    nombre: "Vischongo",
+    imagen: "/assets/img/rutas/vischongo.jpeg",
     emoji: "🏙️",
     color: "#4C5958",
-    region: "Lima",
-    duracion: "~10h",
+    region: "Ayacucho",
+    duracion: "~2h",
     distancia: "~560 km",
     horarios: [
       { hora: "08:00", tipo: "Diurno",   precio: "S/ 50–70" },
@@ -92,16 +92,16 @@ const DESTINOS = [
       { hora: "22:00", tipo: "Nocturno", precio: "S/ 65–85" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas", tipo: "ORIGEN"  },
-      { nombre: "Terminal Plaza Norte",   dir: "Av. Túpac Amaru 3069, Lima",           horario: "Abierto 24 horas", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga", dir:"Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas", tipo: "ORIGEN"  },
+      { nombre: "Agenci de Vichongo",   dir: "Av. Túpac Amaru 3069, Lima",           horario: "Abierto 24 horas", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Cusco",
-    imagen: "/assets/img/rutas/cusco.jpg",
+    nombre: "Andabamba",
+    imagen: "/assets/img/rutas/andabamba.jpeg",
     emoji: "🏺",
     color: "#127369",
-    region: "Cusco",
+    region: "Ayacucho",
     duracion: "~12h",
     distancia: "~500 km",
     horarios: [
@@ -109,13 +109,13 @@ const DESTINOS = [
       { hora: "19:00", tipo: "Nocturno", precio: "S/ 60–80" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari",   dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas", tipo: "ORIGEN"  },
-      { nombre: "Terminal Terrestre Cusco", dir: "Av. Velasco Astete s/n, Cusco",        horario: "Abierto 24 horas", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga",   dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas", tipo: "ORIGEN"  },
+      { nombre: "Agencia de Andabamba", dir: "Av. Velasco Astete s/n, Cusco",        horario: "Abierto 24 horas", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Ica",
-    imagen: "/assets/img/rutas/ica.jpg",
+    nombre: "Manallasacc",
+    imagen: "/assets/img/rutas/manallasacc.jpeg",
     emoji: "🏜️",
     color: "#8AA6A3",
     region: "Ica",
@@ -126,16 +126,16 @@ const DESTINOS = [
       { hora: "20:00", tipo: "Nocturno", precio: "S/ 45–60" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
-      { nombre: "Terminal Ica",           dir: "Prolongación Lambayeque 180, Ica",    horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga", dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas",   tipo: "ORIGEN"  },
+      { nombre: "Agencia de Manallasacc",           dir: "Prolongación Lambayeque 180, Ica",    horario: "6:00 AM – 10:00 PM", tipo: "DESTINO" },
     ],
   },
   {
-    nombre: "Andahuaylas",
-    imagen: "/assets/img/rutas/andahuaylas.jpg",
+    nombre: "Chiribamba",
+    imagen: "/assets/img/rutas/chiribamba.jpeg",
     emoji: "⛰️",
     color: "#10403B",
-    region: "Apurímac",
+    region: "Ayacucho",
     duracion: "~5h",
     distancia: "~195 km",
     horarios: [
@@ -145,8 +145,8 @@ const DESTINOS = [
       { hora: "18:00", tipo: "Nocturno", precio: "S/ 30–40" },
     ],
     terminales: [
-      { nombre: "Terrapuerto Plaza Wari", dir: "Av. Pérez de Cuéllar 2263, Ayacucho", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
-      { nombre: "Terminal Andahuaylas",   dir: "Av. Martinelli s/n, Andahuaylas",      horario: "7:00 AM – 9:00 PM", tipo: "DESTINO" },
+      { nombre: "Terminal del Sur Madre Covadonga", dir: "Av. Cusco 362, Ayacucho 05003", horario: "Abierto 24 horas",  tipo: "ORIGEN"  },
+      { nombre: "Agencia de Chiribamba",   dir: "Av. Martinelli s/n, Andahuaylas",      horario: "7:00 AM – 9:00 PM", tipo: "DESTINO" },
     ],
   },
 ];
@@ -306,7 +306,7 @@ export default function App() {
       {/* ── STATS ── */}
       <div className="stats-bar">
         <div className="stat">
-          <span className="stat-num">15+</span>
+          <span className="stat-num">10+</span>
           <span className="stat-label">Destinos</span>
         </div>
         <div className="stat">
@@ -314,7 +314,7 @@ export default function App() {
           <span className="stat-label">Años de experiencia</span>
         </div>
         <div className="stat">
-          <span className="stat-num">50K+</span>
+          <span className="stat-num">25K+</span>
           <span className="stat-label">Pasajeros / año</span>
         </div>
         <div className="stat">
@@ -353,7 +353,7 @@ export default function App() {
                   className="btn-terminal"
                   onClick={() => setModalDestino(d)}
                 >
-                  Ver Terminales
+                  Reservar pasaje
                 </button>
               </div>
             </div>
@@ -393,7 +393,7 @@ export default function App() {
         </div>
         <p>Empresa de Transportes · Ayacucho, Perú · © 2026 Todos los derechos reservados</p>
         <p className="footer-contact">
-          Terminal: Jr. Lima 350, Ayacucho &nbsp;|&nbsp; Tel: (066) 312-000
+          Terminal: Av. Cusco 362, Ayacucho &nbsp;|&nbsp; Tel: (066) 312-000
         </p>
       </footer>
 
