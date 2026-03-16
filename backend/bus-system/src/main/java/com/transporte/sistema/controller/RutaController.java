@@ -76,6 +76,33 @@ public class RutaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(rutaRepository.save(ruta)));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<RutaResponse> actualizar(@PathVariable Long id,
+                                                    @Valid @RequestBody RutaRequest request) {
+        Ruta ruta = rutaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ruta", id));
+
+        // Si el código cambió, verificar que no exista otro con ese código
+        if (!ruta.getCodigo().equals(request.getCodigo()) && rutaRepository.existsByCodigo(request.getCodigo()))
+            throw new ConflictoException("Ya existe una ruta con código: " + request.getCodigo());
+
+        var origen = sucursalRepository.findById(request.getOrigenId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Sucursal origen", request.getOrigenId()));
+        var destino = sucursalRepository.findById(request.getDestinoId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Sucursal destino", request.getDestinoId()));
+
+        ruta.setCodigo(request.getCodigo());
+        ruta.setOrigen(origen);
+        ruta.setDestino(destino);
+        ruta.setDistanciaKm(request.getDistanciaKm());
+        ruta.setDuracionHorasEstimada(request.getDuracionHorasEstimada());
+        ruta.setPrecioBase(request.getPrecioBase());
+        ruta.setDescripcion(request.getDescripcion());
+
+        return ResponseEntity.ok(toResponse(rutaRepository.save(ruta)));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {

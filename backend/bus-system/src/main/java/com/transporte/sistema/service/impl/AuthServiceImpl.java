@@ -13,6 +13,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +31,7 @@ public class AuthServiceImpl implements AuthService {
     private final UsuarioRepository usuarioRepository;
 
     @Override
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         // Delegar la autenticación a Spring Security (valida password con BCrypt)
         Authentication auth = authenticationManager.authenticate(
