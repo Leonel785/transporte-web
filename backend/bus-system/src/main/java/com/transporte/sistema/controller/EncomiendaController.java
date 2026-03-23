@@ -3,6 +3,7 @@ package com.transporte.sistema.controller;
 import com.transporte.sistema.dto.request.ActualizarEstadoEncomiendaRequest;
 import com.transporte.sistema.dto.request.EncomiendaRequest;
 import com.transporte.sistema.dto.response.EncomiendaResponse;
+import com.transporte.sistema.dto.response.MovimientoEncomiendaResponse;
 import com.transporte.sistema.service.EncomiendaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Gestión de encomiendas: registro, tracking y entrega.
- * El endpoint de tracking es público para que el destinatario consulte sin login.
- */
+import java.security.Principal;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/encomiendas")
 @RequiredArgsConstructor
@@ -25,23 +25,20 @@ public class EncomiendaController {
 
     private final EncomiendaService encomiendaService;
 
-    /**
-     * Tracking público por número de guía.
-     * Ejemplo: GET /api/v1/encomiendas/tracking/GUI-20241201-000001
-     */
+    // ── Endpoints existentes ─────────────────────────────────────────────────
+
+    /** Tracking público por número de guía */
     @GetMapping("/tracking/{numeroGuia}")
     public ResponseEntity<EncomiendaResponse> tracking(@PathVariable String numeroGuia) {
         return ResponseEntity.ok(encomiendaService.obtenerPorGuia(numeroGuia));
     }
 
-    /** Obtener encomienda por ID */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<EncomiendaResponse> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(encomiendaService.obtenerPorId(id));
     }
 
-    /** Listar encomiendas por remitente */
     @GetMapping("/remitente/{remitenteId}")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<Page<EncomiendaResponse>> listarPorRemitente(
@@ -52,7 +49,6 @@ public class EncomiendaController {
                 remitenteId, PageRequest.of(page, size, Sort.by("createdAt").descending())));
     }
 
-    /** Listar encomiendas recibidas en una sucursal */
     @GetMapping("/sucursal/{sucursalId}")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<Page<EncomiendaResponse>> listarPorSucursal(
@@ -63,10 +59,6 @@ public class EncomiendaController {
                 sucursalId, PageRequest.of(page, size, Sort.by("createdAt").descending())));
     }
 
-    /**
-     * Registrar nueva encomienda en caja.
-     * Solo CAJERO o ADMIN.
-     */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<EncomiendaResponse> registrar(@Valid @RequestBody EncomiendaRequest request) {
@@ -74,17 +66,36 @@ public class EncomiendaController {
                 .body(encomiendaService.registrar(request));
     }
 
-    /**
-     * Actualizar estado de la encomienda (genera movimiento de tracking).
-     * CAJERO puede mover a EN_ALMACEN, LISTO_ENTREGA, ENTREGADO.
-     * CHOFER puede mover a EN_TRANSITO, EN_DESTINO.
-     * ADMIN puede mover a cualquier estado.
-     */
     @PatchMapping("/{id}/estado")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO','CHOFER')")
     public ResponseEntity<EncomiendaResponse> actualizarEstado(
             @PathVariable Long id,
             @Valid @RequestBody ActualizarEstadoEncomiendaRequest request) {
         return ResponseEntity.ok(encomiendaService.actualizarEstado(id, request));
+    }
+
+    // ── Portal cliente ────────────────────────────────────────────────────────
+
+    /**
+     * GET /api/v1/encomiendas/mis-encomiendas
+     * Encomiendas del cliente autenticado (como remitente).
+     */
+    @GetMapping("/mis-encomiendas")
+    @PreAuthorize("hasRole('CLIENTE')")
+    public ResponseEntity<List<EncomiendaResponse>> misEncomiendas(Principal principal) {
+        return ResponseEntity.ok(encomiendaService.misEncomiendas(principal.getName()));
+    }
+
+    /**
+     * GET /api/v1/encomiendas/{id}/movimientos
+     * Tracking detallado de una encomienda.
+     * CLIENTE solo puede ver las suyas; ADMIN/CAJERO pueden ver todas.
+     */
+    @GetMapping("/{id}/movimientos")
+    @PreAuthorize("hasAnyRole('ADMIN','CAJERO','CLIENTE')")
+    public ResponseEntity<List<MovimientoEncomiendaResponse>> movimientos(
+            @PathVariable Long id,
+            Principal principal) {
+        return ResponseEntity.ok(encomiendaService.obtenerMovimientos(id, principal.getName()));
     }
 }

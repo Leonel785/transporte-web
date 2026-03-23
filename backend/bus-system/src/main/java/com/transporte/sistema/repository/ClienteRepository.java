@@ -15,6 +15,13 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
     boolean existsByDniRuc(String dniRuc);
 
+    /**
+     * Busca el cliente vinculado a un usuario por su username.
+     * Usado en GET /api/v1/clientes/mi-perfil
+     * Spring Data JPA deriva la query: clientes.usuario_id → usuarios.username
+     */
+    Optional<Cliente> findByUsuarioUsername(String username);
+
     @Query("SELECT c FROM Cliente c WHERE " +
            "LOWER(c.nombres) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :q, '%')) OR " +

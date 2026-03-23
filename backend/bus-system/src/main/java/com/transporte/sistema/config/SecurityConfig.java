@@ -25,12 +25,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/**
- * Configuración de Spring Security.
- * - Stateless con JWT (sin sesiones HTTP)
- * - CORS configurado explícitamente
- * - Endpoints públicos: /api/v1/auth/**, tracking, viajes disponibles
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
@@ -46,11 +40,17 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
+                // Auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                // Registro público de clientes (portal web)
+                .requestMatchers(HttpMethod.POST, "/api/v1/clientes/registro").permitAll()
+                // Actuator
                 .requestMatchers("/actuator/health").permitAll()
+                // Consultas públicas
                 .requestMatchers(HttpMethod.GET, "/api/v1/viajes/disponibles").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/rutas/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/encomiendas/tracking/**").permitAll()
+                // Todo lo demás requiere autenticación
                 .anyRequest().authenticated()
             )
             .sessionManagement(session ->

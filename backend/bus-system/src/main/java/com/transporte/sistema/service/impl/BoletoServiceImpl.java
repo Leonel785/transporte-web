@@ -30,29 +30,30 @@ import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BoletoServiceImpl implements BoletoService {
 
-    private final BoletoRepository boletoRepository;
-    private final ViajeRepository viajeRepository;
-    private final AsientoRepository asientoRepository;
-    private final ClienteRepository clienteRepository;
-    private final PagoRepository pagoRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final BoletoRepository    boletoRepository;
+    private final ViajeRepository     viajeRepository;
+    private final AsientoRepository   asientoRepository;
+    private final ClienteRepository   clienteRepository;
+    private final PagoRepository      pagoRepository;
+    private final UsuarioRepository   usuarioRepository;
+
+    // ── Métodos existentes ───────────────────────────────────────────────────
 
     @Override
     @Transactional
     public BoletoResponse vender(BoletoRequest request) {
-        // 1. Validar viaje
         Viaje viaje = viajeRepository.findById(request.getViajeId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Viaje", request.getViajeId()));
         if (viaje.getEstado() != EstadoViaje.PROGRAMADO)
             throw new NegocioException("Solo se pueden vender boletos para viajes PROGRAMADOS");
 
-        // 2. Validar y reservar asiento
         Asiento asiento = asientoRepository.findById(request.getAsientoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asiento", request.getAsientoId()));
         if (!asiento.getViaje().getId().equals(viaje.getId()))
@@ -60,11 +61,9 @@ public class BoletoServiceImpl implements BoletoService {
         if (asiento.getEstado() != EstadoAsiento.DISPONIBLE)
             throw new NegocioException("El asiento " + asiento.getNumeroAsiento() + " ya no está disponible");
 
-        // 3. Cliente
         Cliente cliente = clienteRepository.findById(request.getClienteId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cliente", request.getClienteId()));
 
-        // 4. Pago
         Pago pago = Pago.builder()
                 .monto(viaje.getPrecioAdulto())
                 .fechaPago(LocalDateTime.now())
@@ -75,39 +74,65 @@ public class BoletoServiceImpl implements BoletoService {
                 .build();
         pagoRepository.save(pago);
 
-        // 5. Cajero del contexto de seguridad
         Usuario cajero = obtenerUsuarioActual();
+        return crearYGuardarBoleto(viaje, asiento, cliente, pago, cajero, request.getObservaciones());
+    }
 
-        // 6. Número de boleto único basado en el ID de BD (se actualiza tras primer save)
-        Boleto boleto = Boleto.builder()
-                .numeroBoleto("TEMP")   // se actualiza tras obtener el ID
-                .viaje(viaje)
-                .asiento(asiento)
-                .cliente(cliente)
-                .precioPagado(viaje.getPrecioAdulto())
-                .estado(EstadoBoleto.ACTIVO)
-                .pago(pago)
-                .cajero(cajero)
-                .observaciones(request.getObservaciones())
+    /**
+     * Compra de pasaje desde el portal del cliente.
+     * El cliente queda registrado automáticamente por su username del JWT.
+     */
+    @Override
+    @Transactional
+    public BoletoResponse comprarPasaje(BoletoRequest request, String username) {
+        // Obtener el cliente vinculado al usuario autenticado
+        Cliente cliente = clienteRepository.findByUsuarioUsername(username)
+                .orElseThrow(() -> new NegocioException(
+                        "No se encontró un perfil de cliente para el usuario: " + username));
+
+        // Sobreescribir clienteId con el del usuario autenticado (seguridad)
+        Viaje viaje = viajeRepository.findById(request.getViajeId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Viaje", request.getViajeId()));
+        if (viaje.getEstado() != EstadoViaje.PROGRAMADO)
+            throw new NegocioException("Este viaje ya no está disponible para reservas");
+
+        Asiento asiento = asientoRepository.findById(request.getAsientoId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Asiento", request.getAsientoId()));
+        if (!asiento.getViaje().getId().equals(viaje.getId()))
+            throw new NegocioException("El asiento no pertenece al viaje indicado");
+        if (asiento.getEstado() != EstadoAsiento.DISPONIBLE)
+            throw new NegocioException("El asiento " + asiento.getNumeroAsiento() + " ya fue reservado");
+
+        Pago pago = Pago.builder()
+                .monto(viaje.getPrecioAdulto())
+                .fechaPago(LocalDateTime.now())
+                .metodo(request.getMetodoPago())
+                .estado(EstadoPago.COMPLETADO)
+                .referencia(request.getReferenciaPago())
                 .activo(true)
                 .build();
+        pagoRepository.save(pago);
 
-        Boleto guardado = boletoRepository.save(boleto);
+        BoletoResponse boleto = crearYGuardarBoleto(viaje, asiento, cliente, pago, null, request.getObservaciones());
+        log.info("Pasaje comprado por cliente {} para viaje {} asiento {}",
+                username, viaje.getId(), asiento.getNumeroAsiento());
+        return boleto;
+    }
 
-        // 7. Número definitivo usando el ID generado por la BD (garantiza unicidad)
-        String numeroBoleto = generarNumeroBoleto(guardado.getId());
-        guardado.setNumeroBoleto(numeroBoleto);
-        guardado.setCodigoQr(numeroBoleto);
-        guardado.setQrImagenUrl(generarQrBase64(numeroBoleto));
-
-        // 8. Marcar asiento como VENDIDO
-        asiento.setEstado(EstadoAsiento.VENDIDO);
-        asientoRepository.save(asiento);
-
-        guardado = boletoRepository.save(guardado);
-        log.info("Boleto {} vendido → viaje {} asiento {}",
-                numeroBoleto, viaje.getId(), asiento.getNumeroAsiento());
-        return toResponse(guardado);
+    /**
+     * Historial de boletos del cliente autenticado.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<BoletoResponse> misBoletos(String username) {
+        Cliente cliente = clienteRepository.findByUsuarioUsername(username)
+                .orElseThrow(() -> new NegocioException(
+                        "No se encontró perfil de cliente para: " + username));
+        return boletoRepository
+                .findByClienteIdOrderByCreatedAtDesc(cliente.getId(), Pageable.unpaged())
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Override
@@ -148,17 +173,16 @@ public class BoletoServiceImpl implements BoletoService {
             throw new NegocioException("El boleto ya está cancelado");
         boleto.setEstado(EstadoBoleto.CANCELADO);
         boleto.setObservaciones(motivo);
-        // Liberar el asiento
-        Asiento asiento = boleto.getAsiento();
-        asiento.setEstado(EstadoAsiento.DISPONIBLE);
-        asientoRepository.save(asiento);
+        boleto.getAsiento().setEstado(EstadoAsiento.DISPONIBLE);
+        asientoRepository.save(boleto.getAsiento());
         return toResponse(boletoRepository.save(boleto));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<BoletoResponse> listarPorCliente(Long clienteId, Pageable pageable) {
-        return boletoRepository.findByClienteIdOrderByCreatedAtDesc(clienteId, pageable).map(this::toResponse);
+        return boletoRepository.findByClienteIdOrderByCreatedAtDesc(clienteId, pageable)
+                .map(this::toResponse);
     }
 
     @Override
@@ -169,17 +193,39 @@ public class BoletoServiceImpl implements BoletoService {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    /**
-     * Número de boleto único usando el ID de BD + fecha.
-     * Ej: BOL-20241201-000042
-     * Garantiza unicidad porque el ID es PK autoincremental.
-     */
+    private BoletoResponse crearYGuardarBoleto(Viaje viaje, Asiento asiento,
+                                                Cliente cliente, Pago pago,
+                                                Usuario cajero, String observaciones) {
+        Boleto boleto = Boleto.builder()
+                .numeroBoleto("TEMP")
+                .viaje(viaje)
+                .asiento(asiento)
+                .cliente(cliente)
+                .precioPagado(viaje.getPrecioAdulto())
+                .estado(EstadoBoleto.ACTIVO)
+                .pago(pago)
+                .cajero(cajero)
+                .observaciones(observaciones)
+                .activo(true)
+                .build();
+
+        Boleto guardado = boletoRepository.save(boleto);
+        String numeroBoleto = generarNumeroBoleto(guardado.getId());
+        guardado.setNumeroBoleto(numeroBoleto);
+        guardado.setCodigoQr(numeroBoleto);
+        guardado.setQrImagenUrl(generarQrBase64(numeroBoleto));
+
+        asiento.setEstado(EstadoAsiento.VENDIDO);
+        asientoRepository.save(asiento);
+
+        return toResponse(boletoRepository.save(guardado));
+    }
+
     private String generarNumeroBoleto(Long id) {
         String fecha = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         return String.format("BOL-%s-%06d", fecha, id);
     }
 
-    /** Genera imagen QR en Base64 (PNG 200x200) usando ZXing */
     private String generarQrBase64(String contenido) {
         try {
             QRCodeWriter writer = new QRCodeWriter();
@@ -194,7 +240,6 @@ public class BoletoServiceImpl implements BoletoService {
         }
     }
 
-    /** Obtiene el usuario autenticado del SecurityContext */
     private Usuario obtenerUsuarioActual() {
         try {
             String username = SecurityContextHolder.getContext()
@@ -204,8 +249,6 @@ public class BoletoServiceImpl implements BoletoService {
             return null;
         }
     }
-
-    // ── Mapeo a DTO ───────────────────────────────────────────────────────────
 
     public BoletoResponse toResponse(Boleto b) {
         Viaje v  = b.getViaje();
@@ -218,6 +261,7 @@ public class BoletoServiceImpl implements BoletoService {
                 .viaje(ViajeResponse.builder()
                         .id(v.getId())
                         .fechaHoraSalida(v.getFechaHoraSalida())
+                        .fechaHoraLlegadaEstimada(v.getFechaHoraLlegadaEstimada())
                         .precioAdulto(v.getPrecioAdulto())
                         .estado(v.getEstado())
                         .build())

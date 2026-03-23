@@ -20,44 +20,43 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EncomiendaServiceImpl implements EncomiendaService {
 
-    private final EncomiendaRepository encomiendaRepository;
-    private final ClienteRepository clienteRepository;
-    private final SucursalRepository sucursalRepository;
-    private final ViajeRepository viajeRepository;
-    private final MovimientoEncomiendaRepository movimientoRepository;
-    private final UsuarioRepository usuarioRepository;
-    private final PagoRepository pagoRepository;
+    private final EncomiendaRepository             encomiendaRepository;
+    private final ClienteRepository                clienteRepository;
+    private final SucursalRepository               sucursalRepository;
+    private final ViajeRepository                  viajeRepository;
+    private final MovimientoEncomiendaRepository   movimientoRepository;
+    private final UsuarioRepository                usuarioRepository;
+    private final PagoRepository                   pagoRepository;
 
+    // ── Métodos existentes ───────────────────────────────────────────────────
 
     @Override
     @Transactional
     public EncomiendaResponse registrar(EncomiendaRequest request) {
-        // Validar que remitente y destinatario sean distintos
         if (request.getRemitenteId().equals(request.getDestinatarioId()))
             throw new NegocioException("El remitente y destinatario no pueden ser la misma persona");
 
-        Cliente remitente = clienteRepository.findById(request.getRemitenteId())
+        Cliente remitente   = clienteRepository.findById(request.getRemitenteId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Remitente", request.getRemitenteId()));
         Cliente destinatario = clienteRepository.findById(request.getDestinatarioId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Destinatario", request.getDestinatarioId()));
-        Sucursal origen = sucursalRepository.findById(request.getSucursalOrigenId())
+        Sucursal origen     = sucursalRepository.findById(request.getSucursalOrigenId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Sucursal origen", request.getSucursalOrigenId()));
-        Sucursal destino = sucursalRepository.findById(request.getSucursalDestinoId())
+        Sucursal destino    = sucursalRepository.findById(request.getSucursalDestinoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Sucursal destino", request.getSucursalDestinoId()));
 
         if (origen.getId().equals(destino.getId()))
             throw new NegocioException("La sucursal de origen y destino no pueden ser iguales");
 
-        // Calcular costo según peso (tarifa básica: S/ 5 por kg, mínimo S/ 10)
         BigDecimal costo = calcularCosto(request.getPesoKg(), request.getVolumenM3());
 
-        // Crear pago
         Pago pago = Pago.builder()
                 .monto(costo)
                 .fechaPago(LocalDateTime.now())
@@ -66,7 +65,6 @@ public class EncomiendaServiceImpl implements EncomiendaService {
                 .build();
         pagoRepository.save(pago);
 
-        // Asignar viaje si se indicó
         Viaje viaje = null;
         if (request.getViajeId() != null) {
             viaje = viajeRepository.findById(request.getViajeId())
@@ -76,7 +74,7 @@ public class EncomiendaServiceImpl implements EncomiendaService {
         Usuario cajero = obtenerUsuarioActual();
 
         Encomienda encomienda = Encomienda.builder()
-                .numeroGuia("TEMP") // se actualiza tras obtener ID de BD
+                .numeroGuia("TEMP")
                 .pago(pago)
                 .remitente(remitente)
                 .destinatario(destinatario)
@@ -96,20 +94,16 @@ public class EncomiendaServiceImpl implements EncomiendaService {
                 .build();
 
         Encomienda guardada = encomiendaRepository.save(encomienda);
-
-        // Número definitivo basado en ID de BD (garantiza unicidad sin AtomicLong)
         String numeroGuia = String.format("GUI-%s-%06d",
                 DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDateTime.now()),
                 guardada.getId());
         guardada.setNumeroGuia(numeroGuia);
         guardada = encomiendaRepository.save(guardada);
 
-        // Registrar primer movimiento
         registrarMovimiento(guardada, null, EstadoEncomienda.RECIBIDO,
                 origen, "Encomienda registrada en " + origen.getNombre(), cajero);
 
-        log.info("Encomienda {} registrada: {} → {}", numeroGuia,
-                remitente.getNombreCompleto(), destinatario.getNombreCompleto());
+        log.info("Encomienda {} registrada", numeroGuia);
         return toResponse(guardada);
     }
 
@@ -133,7 +127,6 @@ public class EncomiendaServiceImpl implements EncomiendaService {
     public EncomiendaResponse actualizarEstado(Long id, ActualizarEstadoEncomiendaRequest request) {
         Encomienda encomienda = encomiendaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Encomienda", id));
-
         EstadoEncomienda estadoAnterior = encomienda.getEstado();
         validarTransicionEstado(estadoAnterior, request.getNuevoEstado());
 
@@ -146,42 +139,90 @@ public class EncomiendaServiceImpl implements EncomiendaService {
         encomienda.setEstado(request.getNuevoEstado());
         Usuario responsable = obtenerUsuarioActual();
         encomiendaRepository.save(encomienda);
-
         registrarMovimiento(encomienda, estadoAnterior, request.getNuevoEstado(),
                 sucursalActual, request.getObservacion(), responsable);
-
-        log.info("Encomienda {} → estado: {} → {}",
-                encomienda.getNumeroGuia(), estadoAnterior, request.getNuevoEstado());
         return toResponse(encomienda);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EncomiendaResponse> listarPorRemitente(Long remitenteId, Pageable pageable) {
-        return encomiendaRepository.findByRemitenteIdOrderByCreatedAtDesc(remitenteId, pageable).map(this::toResponse);
+        return encomiendaRepository.findByRemitenteIdOrderByCreatedAtDesc(remitenteId, pageable)
+                .map(this::toResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EncomiendaResponse> listarPorSucursalOrigen(Long sucursalId, Pageable pageable) {
-        return encomiendaRepository.findBySucursalOrigenIdOrderByCreatedAtDesc(sucursalId, pageable).map(this::toResponse);
+        return encomiendaRepository.findBySucursalOrigenIdOrderByCreatedAtDesc(sucursalId, pageable)
+                .map(this::toResponse);
     }
 
-    // --- Helpers ---
+    // ── Portal cliente ────────────────────────────────────────────────────────
 
-    private void registrarMovimiento(Encomienda encomienda, EstadoEncomienda anterior,
+    /**
+     * Encomiendas donde el cliente autenticado es el remitente.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<EncomiendaResponse> misEncomiendas(String username) {
+        Cliente cliente = clienteRepository.findByUsuarioUsername(username)
+                .orElseThrow(() -> new NegocioException(
+                        "No se encontró perfil de cliente para: " + username));
+        return encomiendaRepository
+                .findByRemitenteIdOrderByCreatedAtDesc(cliente.getId(), Pageable.unpaged())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /**
+     * Movimientos de una encomienda — accesible por el cliente si es su remitente.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<MovimientoEncomiendaResponse> obtenerMovimientos(Long encomiendaId, String username) {
+        Encomienda encomienda = encomiendaRepository.findById(encomiendaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Encomienda", encomiendaId));
+
+        // Verificar que pertenece al cliente autenticado
+        if (username != null && encomienda.getRemitente().getUsuario() != null) {
+            if (!encomienda.getRemitente().getUsuario().getUsername().equals(username)) {
+                throw new NegocioException("No tienes permiso para ver esta encomienda");
+            }
+        }
+
+        return movimientoRepository
+                .findByEncomiendaIdOrderByFechaHoraAsc(encomiendaId)
+                .stream()
+                .map(m -> MovimientoEncomiendaResponse.builder()
+                        .id(m.getId())
+                        .fechaHora(m.getFechaHora())
+                        .sucursalActual(m.getSucursalActual() != null
+                                ? m.getSucursalActual().getNombre() : "En tránsito")
+                        .estadoAnterior(m.getEstadoAnterior())
+                        .estadoNuevo(m.getEstadoNuevo())
+                        .observacion(m.getObservacion())
+                        .usuarioResponsable(m.getUsuarioResponsable() != null
+                                ? m.getUsuarioResponsable().getNombres() : null)
+                        .build())
+                .toList();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private void registrarMovimiento(Encomienda e, EstadoEncomienda anterior,
                                      EstadoEncomienda nuevo, Sucursal sucursal,
                                      String obs, Usuario responsable) {
-        MovimientoEncomienda mov = MovimientoEncomienda.builder()
-                .encomienda(encomienda)
+        movimientoRepository.save(MovimientoEncomienda.builder()
+                .encomienda(e)
                 .fechaHora(LocalDateTime.now())
                 .sucursalActual(sucursal)
                 .estadoAnterior(anterior)
                 .estadoNuevo(nuevo)
                 .observacion(obs)
                 .usuarioResponsable(responsable)
-                .build();
-        movimientoRepository.save(mov);
+                .build());
     }
 
     private void validarTransicionEstado(EstadoEncomienda actual, EstadoEncomienda nuevo) {
@@ -197,16 +238,10 @@ public class EncomiendaServiceImpl implements EncomiendaService {
             throw new NegocioException("Transición inválida: " + actual + " → " + nuevo);
     }
 
-    /**
-     * Tarifa básica: S/ 5.00 por kg, mínimo S/ 10.00
-     * Cargos adicionales por volumen si supera 0.05 m³/kg
-     */
     private BigDecimal calcularCosto(BigDecimal pesoKg, BigDecimal volumenM3) {
         BigDecimal tarifaBase = pesoKg.multiply(BigDecimal.valueOf(5.0));
-        BigDecimal minimo = BigDecimal.valueOf(10.0);
-        return tarifaBase.max(minimo);
+        return tarifaBase.max(BigDecimal.valueOf(10.0));
     }
-
 
     private Usuario obtenerUsuarioActual() {
         try {
@@ -236,13 +271,13 @@ public class EncomiendaServiceImpl implements EncomiendaService {
                         .map(m -> MovimientoEncomiendaResponse.builder()
                                 .id(m.getId())
                                 .fechaHora(m.getFechaHora())
-                                .sucursalActual(m.getSucursalActual() != null ?
-                                        m.getSucursalActual().getNombre() : "En tránsito")
+                                .sucursalActual(m.getSucursalActual() != null
+                                        ? m.getSucursalActual().getNombre() : "En tránsito")
                                 .estadoAnterior(m.getEstadoAnterior())
                                 .estadoNuevo(m.getEstadoNuevo())
                                 .observacion(m.getObservacion())
-                                .usuarioResponsable(m.getUsuarioResponsable() != null ?
-                                        m.getUsuarioResponsable().getNombres() : null)
+                                .usuarioResponsable(m.getUsuarioResponsable() != null
+                                        ? m.getUsuarioResponsable().getNombres() : null)
                                 .build())
                         .toList())
                 .createdAt(e.getCreatedAt())

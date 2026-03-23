@@ -1,8 +1,10 @@
 package com.transporte.sistema.controller;
 
 import com.transporte.sistema.dto.request.ClienteRequest;
+import com.transporte.sistema.dto.request.RegistroClienteRequest;
 import com.transporte.sistema.dto.response.ApiResponse;
 import com.transporte.sistema.dto.response.ClienteResponse;
+import com.transporte.sistema.dto.response.LoginResponse;
 import com.transporte.sistema.service.ClienteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 /**
- * CRUD de clientes.
- * - ADMIN y CAJERO pueden crear/actualizar
- * - Todos los autenticados pueden consultar
+ * CRUD de clientes + endpoints del portal self-service.
  */
 @RestController
 @RequestMapping("/api/v1/clientes")
@@ -26,7 +28,8 @@ public class ClienteController {
 
     private final ClienteService clienteService;
 
-    /** Buscar clientes por nombre o DNI/RUC */
+    // ── CRUD (ADMIN / CAJERO) ────────────────────────────────────────────────
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO','CHOFER')")
     public ResponseEntity<Page<ClienteResponse>> listar(
@@ -40,28 +43,24 @@ public class ClienteController {
         return ResponseEntity.ok(clienteService.listarTodos(pageable));
     }
 
-    /** Obtener cliente por ID */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO','CHOFER')")
     public ResponseEntity<ClienteResponse> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(clienteService.obtenerPorId(id));
     }
 
-    /** Obtener cliente por DNI/RUC (útil en caja: buscar cliente rápido) */
     @GetMapping("/dni/{dniRuc}")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<ClienteResponse> obtenerPorDni(@PathVariable String dniRuc) {
         return ResponseEntity.ok(clienteService.obtenerPorDniRuc(dniRuc));
     }
 
-    /** Registrar nuevo cliente */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.crear(request));
     }
 
-    /** Actualizar cliente */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<ClienteResponse> actualizar(
@@ -70,11 +69,35 @@ public class ClienteController {
         return ResponseEntity.ok(clienteService.actualizar(id, request));
     }
 
-    /** Eliminar cliente (soft delete) */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
         clienteService.eliminar(id);
         return ResponseEntity.ok(ApiResponse.ok("Cliente eliminado correctamente", null));
+    }
+
+    // ── Portal self-service ──────────────────────────────────────────────────
+
+    /**
+     * POST /api/v1/clientes/registro
+     * Endpoint PÚBLICO — sin token.
+     * Crea una cuenta de cliente y devuelve JWT para auto-login.
+     */
+    @PostMapping("/registro")
+    public ResponseEntity<LoginResponse> registrarse(
+            @Valid @RequestBody RegistroClienteRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(clienteService.registrarConCuenta(request));
+    }
+
+    /**
+     * GET /api/v1/clientes/mi-perfil
+     * Solo ROLE_CLIENTE — retorna datos del cliente autenticado.
+     * El username se extrae automáticamente del JWT via Principal.
+     */
+    @GetMapping("/mi-perfil")
+    @PreAuthorize("hasRole('CLIENTE')")
+    public ResponseEntity<ClienteResponse> miPerfil(Principal principal) {
+        return ResponseEntity.ok(clienteService.obtenerPorUsername(principal.getName()));
     }
 }
