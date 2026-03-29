@@ -520,9 +520,7 @@ function LandingPage({ onIrLogin }) {
       <section className="nosotros" id="nosotros">
         <h2>¿Por qué viajar con nosotros?</h2>
         <p>
-          Somos una empresa ayacuchana con más de dos décadas conectando
-          comunidades y ciudades a través de los Andes peruanos. Tu comodidad
-          y seguridad son nuestra prioridad.
+          Somos una empresa ayacuchana .
         </p>
         <div className="valores">
           {[
