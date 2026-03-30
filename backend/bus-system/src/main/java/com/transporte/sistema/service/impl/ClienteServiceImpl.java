@@ -35,14 +35,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ClienteServiceImpl implements ClienteService {
 
-    private final ClienteRepository   clienteRepository;
-    private final UsuarioRepository   usuarioRepository;
-    private final RolRepository       rolRepository;
-    private final PasswordEncoder     passwordEncoder;
-    private final JwtUtil             jwtUtil;
-    private final UserDetailsService  userDetailsService;
-
-    // ── CRUD existente ───────────────────────────────────────────────────────
+    private final ClienteRepository clienteRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final RolRepository rolRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final UserDetailsService userDetailsService;
 
     @Override
     @Transactional
@@ -105,39 +103,30 @@ public class ClienteServiceImpl implements ClienteService {
         log.info("Cliente {} eliminado (soft delete)", id);
     }
 
-    // ── Portal self-service ──────────────────────────────────────────────────
-
-    /**
-     * Registro público desde el portal web.
-     * Crea un Usuario con rol ROLE_CLIENTE y un Cliente vinculado.
-     * Devuelve JWT para auto-login inmediato tras el registro.
-     */
     @Override
     @Transactional
     public LoginResponse registrarConCuenta(RegistroClienteRequest request) {
-
-        // 1. Validar unicidad de username
+        // Validar unicidad de username
         if (usuarioRepository.existsByUsername(request.getUsername())) {
             throw new ConflictoException("El nombre de usuario '" + request.getUsername() + "' ya está en uso");
         }
 
-        // 2. Validar unicidad de DNI/RUC
+        // Validar unicidad de DNI/RUC
         if (clienteRepository.existsByDniRuc(request.getDniRuc())) {
             throw new ConflictoException("Ya existe una cuenta registrada con el DNI/RUC: " + request.getDniRuc());
         }
 
-        // 3. Validar unicidad de email (si se proporcionó)
+        // Validar unicidad de email
         if (request.getEmail() != null && !request.getEmail().isBlank()
                 && usuarioRepository.existsByEmail(request.getEmail())) {
             throw new ConflictoException("El correo '" + request.getEmail() + "' ya está registrado");
         }
 
-        // 4. Obtener el rol ROLE_CLIENTE
+        // Obtener rol ROLE_CLIENTE
         Rol rolCliente = rolRepository.findByNombre(RolNombre.ROLE_CLIENTE)
-                .orElseThrow(() -> new NegocioException(
-                        "Rol ROLE_CLIENTE no encontrado. Ejecuta la migración V2__cliente_portal.sql"));
+                .orElseThrow(() -> new NegocioException("Rol ROLE_CLIENTE no encontrado"));
 
-        // 5. Crear Usuario
+        // Crear Usuario
         Usuario usuario = Usuario.builder()
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
@@ -151,7 +140,7 @@ public class ClienteServiceImpl implements ClienteService {
                 .build();
         usuario = usuarioRepository.save(usuario);
 
-        // 6. Crear Cliente vinculado al Usuario
+        // Crear Cliente vinculado
         Cliente cliente = Cliente.builder()
                 .dniRuc(request.getDniRuc())
                 .nombres(request.getNombres())
@@ -164,11 +153,12 @@ public class ClienteServiceImpl implements ClienteService {
                 .build();
         cliente = clienteRepository.save(cliente);
 
-        // 7. Generar JWT con los claims del sistema (mismo formato que AuthServiceImpl)
+        // Generar JWT
         UserDetails userDetails = userDetailsService.loadUserByUsername(usuario.getUsername());
         Map<String, Object> claims = new HashMap<>();
         claims.put("rol", RolNombre.ROLE_CLIENTE.name());
         claims.put("usuarioId", usuario.getId());
+        claims.put("clienteId", cliente.getId());
         String token = jwtUtil.generarToken(userDetails, claims);
 
         log.info("Nuevo cliente registrado: {} [{}]", usuario.getUsername(), request.getDniRuc());
@@ -180,15 +170,10 @@ public class ClienteServiceImpl implements ClienteService {
                 .username(usuario.getUsername())
                 .nombreCompleto(request.getNombres() + " " + request.getApellidos())
                 .rol(RolNombre.ROLE_CLIENTE.name())
-                .sucursalId(null)
-                .sucursalNombre(null)
                 .clienteId(cliente.getId())
                 .build();
     }
 
-    /**
-     * Obtener perfil del cliente autenticado por su username (extraído del JWT).
-     */
     @Override
     @Transactional(readOnly = true)
     public ClienteResponse obtenerPorUsername(String username) {
@@ -198,7 +183,7 @@ public class ClienteServiceImpl implements ClienteService {
         return toResponse(cliente);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────
 
     private Cliente obtenerEntidad(Long id) {
         return clienteRepository.findById(id)

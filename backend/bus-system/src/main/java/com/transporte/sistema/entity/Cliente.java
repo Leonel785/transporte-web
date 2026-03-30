@@ -4,7 +4,6 @@ import com.transporte.sistema.enums.TipoCliente;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-
 /**
  * Clientes que compran boletos o envían/reciben encomiendas.
  * Puede ser persona natural (DNI) o empresa (RUC).

@@ -1,5 +1,9 @@
 server:
   port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html
+    min-response-size: 1024
 
 spring:
   application:
@@ -12,8 +16,11 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
-      minimum-idle: 5
+      minimum-idle: 3
       connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: TransporteHikariPool
 
   jpa:
     hibernate:
@@ -21,23 +28,32 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: false
         default_schema: public
+        jdbc:
+          batch_size: 20
+          order_inserts: true
+          order_updates: true
+        generate_statistics: false
     open-in-view: false
 
   jackson:
     serialization:
       write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
     time-zone: America/Lima
+    default-property-inclusion: non_null
 
 app:
   jwt:
-    # IMPORTANTE: debe ser un string Base64 de al menos 32 bytes.
-    # Generar con: python3 -c "import base64,secrets;print(base64.b64encode(secrets.token_bytes(32)).decode())"
-    secret: "T1QOp0xFD9qWMfxer3Yyxy6VYAn0MYl6SExPbO3DO2c="
+    secret: T1QOp0xFD9qWMfxer3Yyxy6VYAn0MYl6SExPbO3DO2c=
     expiration-ms: 86400000
     refresh-expiration-ms: 604800000
+
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:3000
 
   boleto:
     prefix: "BOL"
@@ -46,13 +62,19 @@ app:
 
 logging:
   level:
-    com.transporte: DEBUG
-    org.springframework.security: INFO
+    com.transporte: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/sistema-transporte.log
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

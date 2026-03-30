@@ -5,14 +5,13 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 /** DTO para crear o actualizar un cliente */
-@Data
-@NoArgsConstructor
+@Data@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ClienteRequest {
 
     @NotBlank(message = "El DNI/RUC es obligatorio")
-    @Size(min = 8, max = 11, message = "DNI debe tener 8 dígitos o RUC 11 dígitos")
+    @Size(min = 8, max = 11, message = "DNI debe tener 8 dígitos o RUC 11")
     private String dniRuc;
 
     @Size(max = 150)
@@ -27,7 +26,7 @@ public class ClienteRequest {
     @Size(max = 20)
     private String telefono;
 
-    @Email(message = "Email inválido")
+    @Email
     @Size(max = 150)
     private String email;
 

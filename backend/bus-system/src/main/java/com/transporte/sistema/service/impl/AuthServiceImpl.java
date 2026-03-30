@@ -2,7 +2,9 @@ package com.transporte.sistema.service.impl;
 
 import com.transporte.sistema.dto.request.LoginRequest;
 import com.transporte.sistema.dto.response.LoginResponse;
+import com.transporte.sistema.entity.Cliente;
 import com.transporte.sistema.entity.Usuario;
+import com.transporte.sistema.repository.ClienteRepository;
 import com.transporte.sistema.repository.UsuarioRepository;
 import com.transporte.sistema.security.JwtUtil;
 import com.transporte.sistema.service.AuthService;
@@ -17,9 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Servicio de autenticación: valida credenciales y genera JWT.
+ * Incluye clienteId en la respuesta si el usuario es un cliente.
  */
 @Slf4j
 @Service
@@ -29,9 +33,10 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final UsuarioRepository usuarioRepository;
+    private final ClienteRepository clienteRepository;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
         // Delegar la autenticación a Spring Security (valida password con BCrypt)
         Authentication auth = authenticationManager.authenticate(
@@ -54,6 +59,15 @@ public class AuthServiceImpl implements AuthService {
 
         String token = jwtUtil.generarToken(userDetails, claims);
 
+        // Obtener clienteId si existe (para usuarios ROLE_CLIENTE)
+        Long clienteId = null;
+        if ("ROLE_CLIENTE".equals(usuario.getRol().getNombre().name())) {
+            Optional<Cliente> cliente = clienteRepository.findByUsuarioUsername(usuario.getUsername());
+            if (cliente.isPresent()) {
+                clienteId = cliente.get().getId();
+            }
+        }
+
         log.info("Login exitoso: {} [{}]",
                 usuario.getUsername(), usuario.getRol().getNombre());
 
@@ -67,6 +81,7 @@ public class AuthServiceImpl implements AuthService {
                 .rol(usuario.getRol().getNombre().name())
                 .sucursalId(usuario.getSucursal() != null ? usuario.getSucursal().getId() : null)
                 .sucursalNombre(usuario.getSucursal() != null ? usuario.getSucursal().getNombre() : null)
+                .clienteId(clienteId) // ✅ Agregado
                 .build();
     }
 }

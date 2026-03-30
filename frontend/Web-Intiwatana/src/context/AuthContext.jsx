@@ -11,8 +11,18 @@ export function AuthProvider({ children }) {
     } catch { return null; }
   });
 
-  const login = (token, username, rol, foto = null) => {
-    const s = { token, username, rol, foto };
+  const login = (responseData) => {
+    // Guardar toda la respuesta del backend
+    const s = {
+      token: responseData.token,
+      username: responseData.username,
+      rol: responseData.rol,
+      usuarioId: responseData.usuarioId,
+      nombreCompleto: responseData.nombreCompleto,
+      sucursalId: responseData.sucursalId,
+      sucursalNombre: responseData.sucursalNombre,
+      clienteId: responseData.clienteId, // ✅ Agregado
+    };
     setSession(s);
     localStorage.setItem("iwt_session", JSON.stringify(s));
   };

@@ -2,6 +2,7 @@ package com.transporte.sistema.config;
 
 import com.transporte.sistema.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,8 +24,18 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * Configuración de seguridad.
+ *
+ * MEJORAS vs versión anterior:
+ * - CORS lee orígenes desde variable de entorno → no wildcard (*) en producción
+ * - Headers CORS explícitos (no "todos los headers")
+ * - maxAge configurado para reducir preflight requests
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
@@ -34,23 +45,21 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
 
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    private String allowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                // Auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                // Registro público de clientes (portal web)
                 .requestMatchers(HttpMethod.POST, "/api/v1/clientes/registro").permitAll()
-                // Actuator
-                .requestMatchers("/actuator/health").permitAll()
-                // Consultas públicas
                 .requestMatchers(HttpMethod.GET, "/api/v1/viajes/disponibles").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/rutas/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/encomiendas/tracking/**").permitAll()
-                // Todo lo demás requiere autenticación
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session ->
@@ -64,10 +73,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .collect(Collectors.toList());
+        config.setAllowedOrigins(origins);
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

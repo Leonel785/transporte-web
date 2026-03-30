@@ -1,3 +1,4 @@
+// App.jsx
 import { useState } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import "./App.css";
@@ -246,7 +247,7 @@ function ModalTracking({ onClose }) {
                 padding:"10px 13px", fontSize:14, color:"var(--blanco)",
                 outline:"none", fontFamily:"inherit",
               }}
-              placeholder="N° de guía — ej: ENC-2026-001"
+              placeholder="N° de guía — ej: GUI-2026-001"
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && buscar()}
@@ -387,9 +388,17 @@ function LandingPage({ onIrLogin }) {
           <button
             className="btn-terminal"
             style={{ borderRadius:8, padding:"7px 14px", fontSize:13 }}
-            onClick={() => navigate("/pasajes")}
+            onClick={() => {
+              if (!session) {
+                navigate("/login");
+              } else if (session.rol === "ROLE_CLIENTE") {
+                navigate("/pasajes");
+              } else {
+                navigate("/");
+              }
+            }}
           >
-            🎫 Comprar pasaje
+            🎫 {session && session.rol === "ROLE_CLIENTE" ? "Mis reservas" : "Reservar pasaje"}
           </button>
 
           {session ? (
@@ -429,7 +438,6 @@ function LandingPage({ onIrLogin }) {
       {/* ── HERO ── */}
       <section className="hero" id="inicio">
         <div className="hero-bg-pattern" />
-        {/* Sin fill blanco — transparente para no cortar el fondo verde */}
         <svg className="hero-mountain-svg" viewBox="0 0 1440 140" preserveAspectRatio="none">
           <polygon
             points="0,140 0,100 200,20 400,80 600,10 800,70 1000,15 1200,60 1440,30 1440,140"
@@ -520,7 +528,7 @@ function LandingPage({ onIrLogin }) {
       <section className="nosotros" id="nosotros">
         <h2>¿Por qué viajar con nosotros?</h2>
         <p>
-          Somos una empresa ayacuchana .
+          Somos una empresa ayacuchana con más de 20 años de experiencia en transporte interprovincial.
         </p>
         <div className="valores">
           {[
@@ -595,11 +603,16 @@ function LandingPage({ onIrLogin }) {
   );
 }
 
-// ── Protección de rutas ────────────────────────────────
+// ── Protección de rutas ───────────────────────────────���
 function RutaProtegida({ children, roles }) {
   const { session } = useAuth();
   if (!session) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(session.rol)) return <Navigate to="/" replace />;
+  if (roles && !roles.includes(session.rol)) {
+    if (session.rol === "ROLE_CLIENTE") return <Navigate to="/pasajes" replace />;
+    if (["ROLE_ADMIN", "ROLE_CAJERO", "ROLE_CHOFER"].includes(session.rol)) 
+      return <Navigate to="/admin" replace />;
+    return <Navigate to="/" replace />;
+  }
   return children;
 }
 
@@ -617,15 +630,16 @@ function AppRouter() {
 
       {/* Login */}
       <Route path="/login" element={
-        session ? <Navigate to={
-          (session.rol === "ROLE_ADMIN" || session.rol === "ROLE_CAJERO" || session.rol === "ROLE_CHOFER")
-            ? "/admin" : "/cliente"
-        } replace /> : <Login onIrRegistro={() => navigate("/registrar")} />
+        session ? (
+          session.rol === "ROLE_CLIENTE" 
+            ? <Navigate to="/pasajes" replace />
+            : <Navigate to="/admin" replace />
+        ) : <Login onIrRegistro={() => navigate("/registrar")} />
       } />
 
       {/* Registro */}
       <Route path="/registrar" element={
-        session ? <Navigate to="/cliente" replace /> : (
+        session ? <Navigate to="/pasajes" replace /> : (
           <div className="login-wrap">
             <LeftPanel tab="cliente" />
             <div className="login-right">

@@ -1,4 +1,5 @@
 package com.transporte.sistema.service;
+
 import com.transporte.sistema.dto.request.ViajeRequest;
 import com.transporte.sistema.dto.response.AsientoResponse;
 import com.transporte.sistema.dto.response.ViajeResponse;
@@ -7,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
+
 public interface ViajeService {
     ViajeResponse crear(ViajeRequest request);
     ViajeResponse obtenerPorId(Long id);
