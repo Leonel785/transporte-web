@@ -3,12 +3,14 @@ package com.transporte.sistema.repository;
 import com.transporte.sistema.entity.Ruta;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface RutaRepository extends JpaRepository<Ruta, Long> {
 
+    @NonNull
     @EntityGraph(attributePaths = {"origen", "destino"})
     List<Ruta> findAll();
 

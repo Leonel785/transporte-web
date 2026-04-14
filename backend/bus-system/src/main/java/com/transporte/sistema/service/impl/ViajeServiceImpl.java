@@ -25,6 +25,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class ViajeServiceImpl implements ViajeService {
 
     private final ViajeRepository   viajeRepository;
@@ -81,7 +82,54 @@ public class ViajeServiceImpl implements ViajeService {
         return toResponse(viaje);
     }
 
+    // ── Actualizar viaje ─────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public ViajeResponse actualizar(Long id, ViajeRequest request) {
+        Viaje viaje = viajeRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Viaje", id));
+
+        Ruta ruta = rutaRepository.findById(request.getRutaId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ruta", request.getRutaId()));
+        Bus bus = busRepository.findById(request.getBusId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Bus", request.getBusId()));
+
+        // Validar solapamiento excluyendo el propio viaje
+        validarDisponibilidadBus(bus.getId(),
+                request.getFechaHoraSalida(),
+                request.getFechaHoraLlegadaEstimada(),
+                id);
+
+        Usuario chofer = null;
+        if (request.getChoferId() != null) {
+            chofer = usuarioRepository.findById(request.getChoferId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Chofer", request.getChoferId()));
+        }
+
+        viaje.setRuta(ruta);
+        viaje.setBus(bus);
+        viaje.setChofer(chofer);
+        viaje.setFechaHoraSalida(request.getFechaHoraSalida());
+        viaje.setFechaHoraLlegadaEstimada(request.getFechaHoraLlegadaEstimada());
+        viaje.setPrecioAdulto(request.getPrecioAdulto());
+        viaje.setPrecioNino(request.getPrecioNino());
+        if (request.getObservaciones() != null) viaje.setObservaciones(request.getObservaciones());
+
+        log.info("Viaje actualizado: id={}", id);
+        return toResponse(viajeRepository.save(viaje));
+    }
+
     // ── Consultas ────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ViajeResponse> listar() {
+        return viajeRepository.findAll().stream()
+                .filter(v -> !Boolean.FALSE.equals(v.getActivo()))
+                .map(this::toResponse)
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -241,12 +289,13 @@ public class ViajeServiceImpl implements ViajeService {
     // ── Mappers ──────────────────────────────────────────────────────────────
 
     private ViajeResponse toResponse(Viaje v) {
-        long disponibles = asientoRepository.countDisponiblesByViajeId(v.getId());
+        long disponibles = 0;
 
         return ViajeResponse.builder()
                 .id(v.getId())
                 .ruta(toRutaResponse(v.getRuta()))
                 .bus(toBusResponse(v.getBus()))
+                .choferId(v.getChofer() != null ? v.getChofer().getId() : null)
                 .choferNombre(v.getChofer() != null
                         ? v.getChofer().getNombres() + " " + v.getChofer().getApellidos()
                         : null)

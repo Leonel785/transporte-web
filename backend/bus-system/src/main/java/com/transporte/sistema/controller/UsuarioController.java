@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Gestión de usuarios del sistema (empleados).
@@ -27,6 +28,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/usuarios")
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class UsuarioController {
 
     private final UsuarioRepository usuarioRepository;
@@ -39,7 +41,7 @@ public class UsuarioController {
     public ResponseEntity<List<UsuarioResponse>> listar() {
         return ResponseEntity.ok(
                 usuarioRepository.findAll().stream()
-                        .filter(u -> u.getActivo() != null && u.getActivo())
+                        .filter(u -> !Boolean.FALSE.equals(u.getActivo()))
                         .map(this::toResponse).toList());
     }
 
@@ -97,13 +99,13 @@ public class UsuarioController {
 
     private UsuarioResponse toResponse(Usuario u) {
         return UsuarioResponse.builder()
-                .id(u.getId()).username(u.getUsername())
+                .id(Objects.requireNonNull(u.getId())).username(u.getUsername())
                 .nombres(u.getNombres()).apellidos(u.getApellidos())
                 .email(u.getEmail()).telefono(u.getTelefono())
                 .rol(u.getRol().getNombre().name())
                 .sucursalId(u.getSucursal() != null ? u.getSucursal().getId() : null)
                 .sucursalNombre(u.getSucursal() != null ? u.getSucursal().getNombre() : null)
-                .activo(u.getActivo()).build();
+                .activo(Objects.requireNonNull(u.getActivo())).build();
     }
 
     /** DTO de respuesta interno al controller */

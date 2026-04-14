@@ -1,6 +1,7 @@
 package com.transporte.sistema.entity;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
@@ -35,6 +36,7 @@ public abstract class BaseEntity {
     private LocalDateTime deletedAt;
 
     @Column(name = "activo", nullable = false)
+    @Builder.Default
     private Boolean activo = true;
 
     /** Soft delete: marca como inactivo en lugar de eliminar */

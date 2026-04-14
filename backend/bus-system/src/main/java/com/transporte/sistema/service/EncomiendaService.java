@@ -13,6 +13,7 @@ public interface EncomiendaService {
     EncomiendaResponse obtenerPorId(Long id);
     EncomiendaResponse obtenerPorGuia(String numeroGuia);
     EncomiendaResponse actualizarEstado(Long id, ActualizarEstadoEncomiendaRequest request);
+    List<EncomiendaResponse> listarTodas();
     Page<EncomiendaResponse> listarPorRemitente(Long remitenteId, Pageable pageable);
     Page<EncomiendaResponse> listarPorSucursalOrigen(Long sucursalId, Pageable pageable);
 

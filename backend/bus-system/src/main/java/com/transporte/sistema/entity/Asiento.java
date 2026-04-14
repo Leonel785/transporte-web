@@ -45,6 +45,7 @@ public class Asiento extends BaseEntity {
 
     /** Piso del bus (1 o 2) */
     @Column(name = "piso", nullable = false)
+    @Builder.Default
     private Integer piso = 1;
 
     @Enumerated(EnumType.STRING)
@@ -53,6 +54,7 @@ public class Asiento extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
+    @Builder.Default
     private EstadoAsiento estado = EstadoAsiento.DISPONIBLE;
 
     /** Referencia inversa al boleto (si está vendido/reservado) */

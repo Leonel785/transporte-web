@@ -8,12 +8,14 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.NonNull;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ViajeRepository extends JpaRepository<Viaje, Long> {
 
+    @NonNull
     @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "bus.sucursal", "chofer"})
     List<Viaje> findAll();
 
@@ -23,7 +25,9 @@ public interface ViajeRepository extends JpaRepository<Viaje, Long> {
     @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer"})
     @Query("SELECT v FROM Viaje v WHERE v.ruta.origen.id = :origenId " +
            "AND v.ruta.destino.id = :destinoId " +
-           "AND v.fechaHoraSalida >= :desde AND v.estado = 'PROGRAMADO'")
+           "AND v.estado = 'PROGRAMADO' " +
+           "AND (:desde IS NULL OR v.fechaHoraSalida >= :desde) " +
+           "AND (v.activo IS NULL OR v.activo = true)")
     Page<Viaje> buscarDisponibles(
             @Param("origenId") Long origenId,
             @Param("destinoId") Long destinoId,

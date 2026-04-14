@@ -31,6 +31,21 @@ public class ViajeController {
     private final ViajeService viajeService;
     private final UsuarioRepository usuarioRepository;
 
+    /** Listar todos los viajes - solo ADMIN */
+    @GetMapping
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<List<ViajeResponse>> listar() {
+        return ResponseEntity.ok(viajeService.listar());
+    }
+
+    /** Actualizar viaje - solo ADMIN */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ViajeResponse> actualizar(@PathVariable Long id,
+                                                     @Valid @RequestBody ViajeRequest request) {
+        return ResponseEntity.ok(viajeService.actualizar(id, request));
+    }
+
     /** Buscar viajes disponibles - PÚBLICO */
     @GetMapping("/disponibles")
     public ResponseEntity<Page<ViajeResponse>> buscarDisponibles(
@@ -40,7 +55,7 @@ public class ViajeController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        LocalDateTime fechaDesde = (desde != null) ? desde : LocalDateTime.now();
+        LocalDateTime fechaDesde = desde; // null = sin filtro de fecha (muestra todos los PROGRAMADO)
         PageRequest pageable = PageRequest.of(page, size, Sort.by("fechaHoraSalida").ascending());
         return ResponseEntity.ok(viajeService.buscarDisponibles(origenId, destinoId, fechaDesde, pageable));
     }
@@ -52,7 +67,6 @@ public class ViajeController {
     }
 
     @GetMapping("/{id}/asientos")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<AsientoResponse>> obtenerAsientos(@PathVariable Long id) {
         return ResponseEntity.ok(viajeService.obtenerAsientos(id));
     }

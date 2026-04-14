@@ -25,6 +25,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class EncomiendaServiceImpl implements EncomiendaService {
 
     private final EncomiendaRepository             encomiendaRepository;
@@ -142,6 +143,14 @@ public class EncomiendaServiceImpl implements EncomiendaService {
         registrarMovimiento(encomienda, estadoAnterior, request.getNuevoEstado(),
                 sucursalActual, request.getObservacion(), responsable);
         return toResponse(encomienda);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EncomiendaResponse> listarTodas() {
+        return encomiendaRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Override

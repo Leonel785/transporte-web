@@ -48,6 +48,7 @@ public class Sucursal extends BaseEntity {
 
     /** Indica si es terminal principal o solo punto de venta/recojo */
     @Column(name = "es_terminal", nullable = false)
+    @Builder.Default
     private Boolean esTerminal = false;
 
     @Column(name = "latitud")

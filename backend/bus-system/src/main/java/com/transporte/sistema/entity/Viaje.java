@@ -57,6 +57,7 @@ public class Viaje extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
+    @Builder.Default
     private EstadoViaje estado = EstadoViaje.PROGRAMADO;
 
     @Column(name = "observaciones", length = 500)

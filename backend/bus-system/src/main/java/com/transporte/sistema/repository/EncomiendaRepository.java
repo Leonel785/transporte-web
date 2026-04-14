@@ -6,9 +6,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.lang.NonNull;
 import java.util.Optional;
 
 public interface EncomiendaRepository extends JpaRepository<Encomienda, Long> {
+
+    @EntityGraph(attributePaths = {"sucursalOrigen", "sucursalDestino", "remitente", "destinatario"})
+    @NonNull
+    java.util.List<Encomienda> findAll();
 
     @EntityGraph(attributePaths = {"sucursalOrigen", "sucursalDestino", "remitente", "destinatario"})
     Optional<Encomienda> findByNumeroGuia(String numeroGuia);

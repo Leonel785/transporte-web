@@ -46,6 +46,7 @@ public class Boleto extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
+    @Builder.Default
     private EstadoBoleto estado = EstadoBoleto.ACTIVO;
 
     /** Contenido del QR: puede ser el numeroBoleto o un hash firmado */

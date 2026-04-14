@@ -53,15 +53,20 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/clientes/registro").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/viajes/disponibles").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/rutas/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/encomiendas/tracking/**").permitAll()
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .anyRequest().authenticated()
-            )
+           .authorizeHttpRequests(auth -> auth
+    .requestMatchers("/api/v1/auth/**").permitAll()
+    .requestMatchers(HttpMethod.POST, "/api/v1/clientes/registro").permitAll()
+
+    // 🔥 ESTA ES LA CLAVE
+    .requestMatchers("/api/v1/viajes/**").permitAll()
+
+    .requestMatchers(HttpMethod.GET, "/api/v1/sucursales").permitAll()
+    .requestMatchers(HttpMethod.GET, "/api/v1/rutas/**").permitAll()
+    .requestMatchers(HttpMethod.GET, "/api/v1/encomiendas/tracking/**").permitAll()
+
+    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+    .anyRequest().authenticated()
+)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())

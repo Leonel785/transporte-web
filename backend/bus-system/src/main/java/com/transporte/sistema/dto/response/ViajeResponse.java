@@ -8,6 +8,7 @@ public class ViajeResponse {
     private Long id;
     private RutaResponse ruta;
     private BusResponse bus;
+    private Long choferId;
     private String choferNombre;
     private LocalDateTime fechaHoraSalida;
     private LocalDateTime fechaHoraLlegadaEstimada;

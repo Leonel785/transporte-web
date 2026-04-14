@@ -47,6 +47,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class BoletoServiceImpl implements BoletoService {
 
     private final BoletoRepository    boletoRepository;

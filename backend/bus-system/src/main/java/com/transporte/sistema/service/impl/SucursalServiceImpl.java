@@ -15,6 +15,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class SucursalServiceImpl implements SucursalService {
 
     private final SucursalRepository sucursalRepository;

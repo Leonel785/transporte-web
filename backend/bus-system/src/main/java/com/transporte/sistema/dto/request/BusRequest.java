@@ -22,6 +22,7 @@ public class BusRequest {
     private Integer capacidadAsientos;
 
     @Min(1) @Max(2)
+    @Builder.Default
     private Integer numPisos = 1;
 
     @NotNull

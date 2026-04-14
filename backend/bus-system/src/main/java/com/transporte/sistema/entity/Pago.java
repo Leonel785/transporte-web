@@ -38,6 +38,7 @@ public class Pago extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
+    @Builder.Default
     private EstadoPago estado = EstadoPago.PENDIENTE;
 
     /** Código de operación Yape/Plin, número de voucher de tarjeta, etc. */

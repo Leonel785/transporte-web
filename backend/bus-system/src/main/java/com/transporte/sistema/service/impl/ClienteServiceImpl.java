@@ -33,6 +33,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class ClienteServiceImpl implements ClienteService {
 
     private final ClienteRepository clienteRepository;

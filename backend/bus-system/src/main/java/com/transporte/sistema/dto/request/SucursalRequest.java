@@ -30,6 +30,7 @@ public class SucursalRequest {
     @Email @Size(max = 150)
     private String email;
 
+    @Builder.Default
     private Boolean esTerminal = false;
     private Double latitud;
     private Double longitud;

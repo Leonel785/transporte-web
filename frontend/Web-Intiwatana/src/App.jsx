@@ -133,7 +133,7 @@ const DESTINOS = [
 ];
 
 // ── Modal horarios ─────────────────────────────────────
-function ModalHorarios({ destino, onClose }) {
+function ModalHorarios({ destino, onClose, onReservar }) {
   if (!destino) return null;
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -177,7 +177,12 @@ function ModalHorarios({ destino, onClose }) {
               </div>
             ))}
           </div>
-          <button className="btn-reservar" onClick={onClose}>Reservar pasaje</button>
+          <button
+            className="btn-reservar"
+            onClick={() => { onClose(); onReservar(destino); }}
+          >
+            🎫 Reservar pasaje en línea
+          </button>
           <p className="modal-nota">* Horarios y precios referenciales. Confirmar disponibilidad en terminal.</p>
         </div>
       </div>
@@ -363,6 +368,10 @@ function LandingPage({ onIrLogin }) {
     session.rol === "ROLE_CAJERO" ||
     session.rol === "ROLE_CHOFER"
   );
+
+  const handleReservarDesdeModal = (destino) => {
+    navigate(`/pasajes?destino=${encodeURIComponent(destino.nombre)}`);
+  };
 
   return (
     <>
@@ -597,7 +606,7 @@ function LandingPage({ onIrLogin }) {
       </footer>
 
       {/* ── MODALES ── */}
-      <ModalHorarios destino={modalDestino} onClose={() => setModalDestino(null)} />
+      <ModalHorarios destino={modalDestino} onClose={() => setModalDestino(null)} onReservar={handleReservarDesdeModal} />
       {showTracking && <ModalTracking onClose={() => setShowTracking(false)} />}
     </>
   );

@@ -15,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * CRUD de buses/vehículos. Solo ADMIN puede crear/modificar.
@@ -22,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/buses")
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class BusController {
 
     private final BusRepository busRepository;
@@ -87,9 +89,10 @@ public class BusController {
 
     private BusResponse toResponse(Bus b) {
         return BusResponse.builder()
-                .id(b.getId()).placa(b.getPlaca()).marca(b.getMarca())
+                .id(Objects.requireNonNull(b.getId()))
+                .placa(b.getPlaca()).marca(b.getMarca())
                 .modelo(b.getModelo()).anioFabricacion(b.getAnioFabricacion())
                 .capacidadAsientos(b.getCapacidadAsientos()).numPisos(b.getNumPisos())
-                .tipo(b.getTipo()).activo(b.getActivo()).build();
+                .tipo(b.getTipo()).activo(Objects.requireNonNull(b.getActivo())).build();
     }
 }

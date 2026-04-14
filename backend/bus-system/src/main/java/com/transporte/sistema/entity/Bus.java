@@ -40,6 +40,7 @@ public class Bus extends BaseEntity {
 
     /** Número de pisos (1 o 2) */
     @Column(name = "num_pisos", nullable = false)
+    @Builder.Default
     private Integer numPisos = 1;
 
     @Enumerated(EnumType.STRING)

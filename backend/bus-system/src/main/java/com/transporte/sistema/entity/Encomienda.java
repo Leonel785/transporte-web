@@ -77,6 +77,7 @@ public class Encomienda extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 30)
+    @Builder.Default
     private EstadoEncomienda estado = EstadoEncomienda.RECIBIDO;
 
     @OneToOne(fetch = FetchType.LAZY)

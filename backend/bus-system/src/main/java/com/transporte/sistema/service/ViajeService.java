@@ -11,6 +11,8 @@ import java.util.List;
 
 public interface ViajeService {
     ViajeResponse crear(ViajeRequest request);
+    ViajeResponse actualizar(Long id, ViajeRequest request);
+    List<ViajeResponse> listar();
     ViajeResponse obtenerPorId(Long id);
     Page<ViajeResponse> buscarDisponibles(Long origenId, Long destinoId, LocalDateTime desde, Pageable pageable);
     List<AsientoResponse> obtenerAsientos(Long viajeId);

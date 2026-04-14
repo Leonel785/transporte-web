@@ -54,5 +54,6 @@ public class Usuario extends BaseEntity {
     private String dniRuc;
 
     @Column(name = "primer_login", nullable = false)
+    @Builder.Default
     private Boolean primerLogin = true;
 }

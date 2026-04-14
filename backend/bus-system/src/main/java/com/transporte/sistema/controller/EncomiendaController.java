@@ -25,6 +25,13 @@ public class EncomiendaController {
 
     private final EncomiendaService encomiendaService;
 
+    /** Listar todas las encomiendas - solo ADMIN */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<EncomiendaResponse>> listarTodas() {
+        return ResponseEntity.ok(encomiendaService.listarTodas());
+    }
+
     // ── Endpoints existentes ─────────────────────────────────────────────────
 
     /** Tracking público por número de guía */

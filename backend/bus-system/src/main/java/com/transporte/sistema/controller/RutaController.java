@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * CRUD de rutas. Los GETs son públicos (usados en portal de consulta).
@@ -24,6 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/rutas")
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class RutaController {
 
     private final RutaRepository rutaRepository;
@@ -32,7 +34,7 @@ public class RutaController {
     @GetMapping
     public ResponseEntity<List<RutaResponse>> listar() {
         List<RutaResponse> rutas = rutaRepository.findAll().stream()
-                .filter(r -> r.getActivo() != null && r.getActivo())
+                .filter(r -> !Boolean.FALSE.equals(r.getActivo()))
                 .map(this::toResponse)
                 .toList();
         return ResponseEntity.ok(rutas);
@@ -115,19 +117,21 @@ public class RutaController {
 
     private RutaResponse toResponse(Ruta r) {
         SucursalResponse origen = r.getOrigen() != null ? SucursalResponse.builder()
-                .id(r.getOrigen().getId()).codigo(r.getOrigen().getCodigo())
+                .id(Objects.requireNonNull(r.getOrigen().getId()))
+                .codigo(r.getOrigen().getCodigo())
                 .nombre(r.getOrigen().getNombre()).ciudad(r.getOrigen().getCiudad())
                 .departamento(r.getOrigen().getDepartamento())
-                .esTerminal(r.getOrigen().getEsTerminal()).build() : null;
+                .esTerminal(Objects.requireNonNull(r.getOrigen().getEsTerminal())).build() : null;
 
         SucursalResponse destino = r.getDestino() != null ? SucursalResponse.builder()
-                .id(r.getDestino().getId()).codigo(r.getDestino().getCodigo())
+                .id(Objects.requireNonNull(r.getDestino().getId()))
+                .codigo(r.getDestino().getCodigo())
                 .nombre(r.getDestino().getNombre()).ciudad(r.getDestino().getCiudad())
                 .departamento(r.getDestino().getDepartamento())
-                .esTerminal(r.getDestino().getEsTerminal()).build() : null;
+                .esTerminal(Objects.requireNonNull(r.getDestino().getEsTerminal())).build() : null;
 
         return RutaResponse.builder()
-                .id(r.getId()).codigo(r.getCodigo())
+                .id(Objects.requireNonNull(r.getId())).codigo(r.getCodigo())
                 .origen(origen).destino(destino)
                 .distanciaKm(r.getDistanciaKm())
                 .duracionHorasEstimada(r.getDuracionHorasEstimada())

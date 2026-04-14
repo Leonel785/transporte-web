@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("DataFlowIssue")
 public class PagoServiceImpl implements PagoService {
 
     private final PagoRepository pagoRepository;

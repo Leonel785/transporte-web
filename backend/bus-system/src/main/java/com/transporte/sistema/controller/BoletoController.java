@@ -1,7 +1,6 @@
 package com.transporte.sistema.controller;
 
 import com.transporte.sistema.dto.request.BoletoRequest;
-import com.transporte.sistema.dto.response.ApiResponse;
 import com.transporte.sistema.dto.response.BoletoResponse;
 import com.transporte.sistema.service.BoletoService;
 import jakarta.validation.Valid;
