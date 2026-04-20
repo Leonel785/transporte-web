@@ -45,7 +45,6 @@ public class ViajeServiceImpl implements ViajeService {
         Bus bus = busRepository.findById(request.getBusId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Bus", request.getBusId()));
 
-        // Validar solapamiento de horario
         validarDisponibilidadBus(bus.getId(),
                 request.getFechaHoraSalida(),
                 request.getFechaHoraLlegadaEstimada(),
@@ -95,7 +94,6 @@ public class ViajeServiceImpl implements ViajeService {
         Bus bus = busRepository.findById(request.getBusId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Bus", request.getBusId()));
 
-        // Validar solapamiento excluyendo el propio viaje
         validarDisponibilidadBus(bus.getId(),
                 request.getFechaHoraSalida(),
                 request.getFechaHoraLlegadaEstimada(),
@@ -116,7 +114,16 @@ public class ViajeServiceImpl implements ViajeService {
         viaje.setPrecioNino(request.getPrecioNino());
         if (request.getObservaciones() != null) viaje.setObservaciones(request.getObservaciones());
 
-        log.info("Viaje actualizado: id={}", id);
+        // ── FIX: aplicar cambio de estado si viene en el request ──────────
+        if (request.getEstado() != null && request.getEstado() != viaje.getEstado()) {
+            validarTransicionEstado(viaje.getEstado(), request.getEstado());
+            viaje.setEstado(request.getEstado());
+            if (request.getEstado() == EstadoViaje.FINALIZADO) {
+                viaje.setFechaHoraLlegadaReal(LocalDateTime.now());
+            }
+        }
+
+        log.info("Viaje actualizado: id={} | estado={}", id, viaje.getEstado());
         return toResponse(viajeRepository.save(viaje));
     }
 
@@ -143,7 +150,7 @@ public class ViajeServiceImpl implements ViajeService {
     public Page<ViajeResponse> buscarDisponibles(
             Long origenId, Long destinoId, LocalDateTime desde, Pageable pageable) {
         return viajeRepository.buscarDisponibles(origenId, destinoId, desde, pageable)
-                .map(this::toResponse);
+                .map(this::toResponseLigero);
     }
 
     @Override
@@ -151,7 +158,6 @@ public class ViajeServiceImpl implements ViajeService {
     public List<AsientoResponse> obtenerAsientos(Long viajeId) {
         viajeRepository.findById(viajeId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Viaje", viajeId));
-        // Usa findByViajeId que SÍ existe en AsientoRepository
         return asientoRepository.findByViajeId(viajeId)
                 .stream()
                 .map(this::toAsientoResponse)
@@ -169,7 +175,6 @@ public class ViajeServiceImpl implements ViajeService {
         validarTransicionEstado(viaje.getEstado(), nuevoEstado);
 
         viaje.setEstado(nuevoEstado);
-        // Si llega a FINALIZADO, registrar hora real de llegada
         if (nuevoEstado == EstadoViaje.FINALIZADO && viaje.getFechaHoraLlegadaEstimada() != null) {
             viaje.setFechaHoraLlegadaReal(LocalDateTime.now());
         }
@@ -196,7 +201,6 @@ public class ViajeServiceImpl implements ViajeService {
             throw new NegocioException("No se puede eliminar un viaje en curso");
         }
 
-        // No eliminar si tiene boletos activos
         long boletosActivos = boletoRepository.countByViajeIdAndEstadoActivo(viaje.getId());
         if (boletosActivos > 0) {
             throw new NegocioException(
@@ -244,14 +248,7 @@ public class ViajeServiceImpl implements ViajeService {
 
     // ── Generación de asientos ───────────────────────────────────────────────
 
-    /**
-     * Genera asientos con distribución estándar 4 columnas:
-     *   col 1 y 4 = VENTANA
-     *   col 2 y 3 = PASILLO
-     * Numeración: "1A", "1B", "1C", "1D", "2A", ...
-     */
     private void generarAsientos(Viaje viaje, Bus bus) {
-        // Usa getCapacidadAsientos() — el getter real de la entidad Bus
         int total    = bus.getCapacidadAsientos();
         int columnas = 4;
         List<Asiento> lista = new ArrayList<>(total);
@@ -260,7 +257,6 @@ public class ViajeServiceImpl implements ViajeService {
             int fila = (int) Math.ceil((double) i / columnas);
             int col  = ((i - 1) % columnas) + 1;
 
-            // col 1 y 4 → VENTANA, col 2 y 3 → PASILLO  (TipoAsiento real en tu proyecto)
             TipoAsiento tipo = (col == 1 || col == 4) ? TipoAsiento.VENTANA : TipoAsiento.PASILLO;
 
             String letra = switch (col) {
@@ -289,12 +285,22 @@ public class ViajeServiceImpl implements ViajeService {
     // ── Mappers ──────────────────────────────────────────────────────────────
 
     private ViajeResponse toResponse(Viaje v) {
+        if (v == null) return null;
+
         long disponibles = 0;
+        try {
+            disponibles = asientoRepository.countDisponiblesByViajeId(v.getId());
+        } catch (Exception e) {
+            log.warn("No se pudo contar asientos del viaje {}: {}", v.getId(), e.getMessage());
+        }
+
+        Bus bus   = v.getBus();
+        Ruta ruta = v.getRuta();
 
         return ViajeResponse.builder()
                 .id(v.getId())
-                .ruta(toRutaResponse(v.getRuta()))
-                .bus(toBusResponse(v.getBus()))
+                .ruta(toRutaResponse(ruta))
+                .bus(toBusResponse(bus))
                 .choferId(v.getChofer() != null ? v.getChofer().getId() : null)
                 .choferNombre(v.getChofer() != null
                         ? v.getChofer().getNombres() + " " + v.getChofer().getApellidos()
@@ -305,8 +311,37 @@ public class ViajeServiceImpl implements ViajeService {
                 .precioNino(v.getPrecioNino())
                 .estado(v.getEstado())
                 .asientosDisponibles((int) disponibles)
-                // Usa getCapacidadAsientos() — el getter real
-                .totalAsientos(v.getBus() != null ? v.getBus().getCapacidadAsientos() : 0)
+                .totalAsientos(bus != null && bus.getCapacidadAsientos() != null
+                        ? bus.getCapacidadAsientos() : 0)
+                .build();
+    }
+
+    private ViajeResponse toResponseLigero(Viaje v) {
+        if (v == null) return null;
+        Bus bus = v.getBus();
+
+        long disponibles = v.getAsientos() != null
+                ? v.getAsientos().stream()
+                    .filter(a -> EstadoAsiento.DISPONIBLE.equals(a.getEstado()))
+                    .count()
+                : 0;
+
+        return ViajeResponse.builder()
+                .id(v.getId())
+                .ruta(toRutaResponse(v.getRuta()))
+                .bus(toBusResponse(bus))
+                .choferId(v.getChofer() != null ? v.getChofer().getId() : null)
+                .choferNombre(v.getChofer() != null
+                        ? v.getChofer().getNombres() + " " + v.getChofer().getApellidos()
+                        : null)
+                .fechaHoraSalida(v.getFechaHoraSalida())
+                .fechaHoraLlegadaEstimada(v.getFechaHoraLlegadaEstimada())
+                .precioAdulto(v.getPrecioAdulto())
+                .precioNino(v.getPrecioNino())
+                .estado(v.getEstado())
+                .asientosDisponibles((int) disponibles)
+                .totalAsientos(bus != null && bus.getCapacidadAsientos() != null
+                        ? bus.getCapacidadAsientos() : 0)
                 .build();
     }
 
@@ -318,7 +353,6 @@ public class ViajeServiceImpl implements ViajeService {
                 .origen(toSucursalResponse(r.getOrigen()))
                 .destino(toSucursalResponse(r.getDestino()))
                 .distanciaKm(r.getDistanciaKm())
-                // Usa getDuracionHorasEstimada() — el getter real de Ruta
                 .duracionHorasEstimada(r.getDuracionHorasEstimada())
                 .precioBase(r.getPrecioBase())
                 .build();
@@ -343,10 +377,10 @@ public class ViajeServiceImpl implements ViajeService {
                 .placa(b.getPlaca())
                 .marca(b.getMarca())
                 .modelo(b.getModelo())
-                // Usa getCapacidadAsientos() — el getter real
                 .capacidadAsientos(b.getCapacidadAsientos())
                 .numPisos(b.getNumPisos())
                 .tipo(b.getTipo())
+                .activo(b.getActivo())
                 .build();
     }
 

@@ -1,12 +1,12 @@
 package com.transporte.sistema.dto.request;
 
+import com.transporte.sistema.enums.EstadoViaje;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** DTO para programar un nuevo viaje */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,7 +22,6 @@ public class ViajeRequest {
     private Long choferId;
 
     @NotNull(message = "La fecha/hora de salida es obligatoria")
-    @FutureOrPresent(message = "La fecha de salida debe ser presente o futura")
     private LocalDateTime fechaHoraSalida;
 
     private LocalDateTime fechaHoraLlegadaEstimada;
@@ -36,4 +35,7 @@ public class ViajeRequest {
 
     @Size(max = 500)
     private String observaciones;
+
+    // Campo opcional — si viene null en PUT, conserva el estado actual
+    private EstadoViaje estado;
 }

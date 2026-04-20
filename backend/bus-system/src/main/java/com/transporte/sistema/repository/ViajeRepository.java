@@ -15,25 +15,24 @@ import java.util.List;
 
 public interface ViajeRepository extends JpaRepository<Viaje, Long> {
 
-    @NonNull
-    @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "bus.sucursal", "chofer"})
-    List<Viaje> findAll();
-
+@NonNull
+@EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer"})
+List<Viaje> findAll();
     @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer"})
     List<Viaje> findByEstado(EstadoViaje estado);
 
-    @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer"})
-    @Query("SELECT v FROM Viaje v WHERE v.ruta.origen.id = :origenId " +
-           "AND v.ruta.destino.id = :destinoId " +
-           "AND v.estado = 'PROGRAMADO' " +
-           "AND (:desde IS NULL OR v.fechaHoraSalida >= :desde) " +
-           "AND (v.activo IS NULL OR v.activo = true)")
-    Page<Viaje> buscarDisponibles(
-            @Param("origenId") Long origenId,
-            @Param("destinoId") Long destinoId,
-            @Param("desde") LocalDateTime desde,
-            Pageable pageable);
-
+ @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer", "asientos"})
+@Query("SELECT v FROM Viaje v WHERE v.ruta.origen.id = :origenId " +
+       "AND v.ruta.destino.id = :destinoId " +
+       "AND v.estado = 'PROGRAMADO' " +
+       "AND (CAST(:desde AS java.time.LocalDateTime) IS NULL OR v.fechaHoraSalida >= :desde) " +
+       "AND (v.activo IS NULL OR v.activo = true)")
+Page<Viaje> buscarDisponibles(
+        @Param("origenId") Long origenId,
+        @Param("destinoId") Long destinoId,
+        @Param("desde") LocalDateTime desde,
+        Pageable pageable);
+        
     @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer"})
     Page<Viaje> findByChoferIdOrderByFechaHoraSalidaDesc(Long choferId, Pageable pageable);
 

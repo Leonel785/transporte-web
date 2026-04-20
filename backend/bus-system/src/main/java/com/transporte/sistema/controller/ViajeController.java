@@ -47,19 +47,17 @@ public class ViajeController {
     }
 
     /** Buscar viajes disponibles - PÚBLICO */
-    @GetMapping("/disponibles")
-    public ResponseEntity<Page<ViajeResponse>> buscarDisponibles(
-            @RequestParam Long origenId,
-            @RequestParam Long destinoId,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        LocalDateTime fechaDesde = desde; // null = sin filtro de fecha (muestra todos los PROGRAMADO)
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("fechaHoraSalida").ascending());
-        return ResponseEntity.ok(viajeService.buscarDisponibles(origenId, destinoId, fechaDesde, pageable));
-    }
-
+@GetMapping("/disponibles")
+public ResponseEntity<Page<ViajeResponse>> buscarDisponibles(
+        @RequestParam Long origenId,
+        @RequestParam Long destinoId,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+    PageRequest pageable = PageRequest.of(page, size, Sort.by("fechaHoraSalida").ascending());
+    return ResponseEntity.ok(viajeService.buscarDisponibles(origenId, destinoId, desde, pageable));
+}
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ViajeResponse> obtenerPorId(@PathVariable Long id) {

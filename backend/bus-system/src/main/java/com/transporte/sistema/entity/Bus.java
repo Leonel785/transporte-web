@@ -16,6 +16,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
+
 public class Bus extends BaseEntity {
 
     @Id
@@ -52,4 +53,6 @@ public class Bus extends BaseEntity {
 
     @Column(name = "observaciones", length = 500)
     private String observaciones;
+    
+    
 }

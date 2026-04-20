@@ -6,10 +6,14 @@ import LogoSVG from "./LogoSVG";
 // ── Helpers ────────────────────────────────────────────
 function fmtFecha(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("es-PE", {
-    weekday: "short", day: "2-digit", month: "short",
-    hour: "2-digit", minute: "2-digit",
-  });
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleString("es-PE", {
+      weekday: "short", day: "2-digit", month: "short",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return "—"; }
 }
 
 // ── Mapa de asientos ───────────────────────────────────
@@ -742,6 +746,8 @@ export default function PasajesPage() {
 
   const [showBienvenida, setShowBienvenida] = useState(recienRegistrado);
   const [sucursales,  setSucursales]  = useState([]);
+  const [cargandoSucursales, setCargandoSucursales] = useState(true);
+  const [errorSucursales, setErrorSucursales] = useState(false);
   const [origenId,    setOrigenId]    = useState("");
   const [destinoId,   setDestinoId]   = useState(""); // se llenará tras cargar sucursales si hay destinoParam
   const [viajes,      setViajes]      = useState([]);
@@ -769,25 +775,30 @@ export default function PasajesPage() {
 
   // Auto-seleccionar destino Y buscar automáticamente si viene desde landing
   useEffect(() => {
-    if (!destinoParam || !sucursales.length) return;
-    const found = sucursales.find(
-      (s) => s.ciudad?.toLowerCase().includes(destinoParam.toLowerCase()) ||
-             s.nombre?.toLowerCase().includes(destinoParam.toLowerCase())
-    );
-    if (found) {
-      setDestinoId(String(found.id));
-      // Si no hay origen elegido, auto-seleccionar la primera sucursal que NO sea el destino
-      setOrigenId(prev => {
-        if (!prev || prev === String(found.id)) {
-          const primerOrigen = sucursales.find(s => s.id !== found.id);
-          return primerOrigen ? String(primerOrigen.id) : prev;
-        }
-        return prev;
-      });
-      // marcar para búsqueda automática
-      setPendingAutoBuscar(String(found.id));
-    }
-  }, [sucursales, destinoParam]);
+  if (!destinoParam || !sucursales.length) return;
+  const found = sucursales.find(
+    (s) => s.ciudad?.toLowerCase().includes(destinoParam.toLowerCase()) ||
+           s.nombre?.toLowerCase().includes(destinoParam.toLowerCase())
+  );
+  if (found) {
+    setDestinoId(String(found.id));
+    setOrigenId(prev => {
+      if (!prev || prev === String(found.id)) {
+        // Priorizar Huamanga/Ayacucho como origen por defecto
+        const origenPref = sucursales.find(s =>
+          s.id !== found.id && (
+            s.ciudad?.toLowerCase().includes("huamanga") ||
+            s.ciudad?.toLowerCase().includes("ayacucho")
+          )
+        );
+        const primerOrigen = origenPref || sucursales.find(s => s.id !== found.id);
+        return primerOrigen ? String(primerOrigen.id) : prev;
+      }
+      return prev;
+    });
+    setPendingAutoBuscar(String(found.id));
+  }
+}, [sucursales, destinoParam]);
 
   // Cuando origenId + destinoId están listos Y viene de landing → buscar automáticamente
   useEffect(() => {
@@ -807,26 +818,49 @@ export default function PasajesPage() {
     : { "Content-Type": "application/json" };
 
   useEffect(() => {
+    setCargandoSucursales(true);
+    setErrorSucursales(false);
     fetch("/api/v1/sucursales", { headers })
-      .then((r) => r.ok ? r.json() : [])
-      .then((d) => setSucursales(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .then((r) => {
+        if (!r.ok) throw new Error("Error al cargar sucursales");
+        return r.json();
+      })
+      .then((d) => {
+        setSucursales(Array.isArray(d) ? d : []);
+        setCargandoSucursales(false);
+      })
+      .catch(() => {
+        setErrorSucursales(true);
+        setCargandoSucursales(false);
+      });
   }, []);
 
   // Función de búsqueda reutilizable (usada por form y por auto-búsqueda)
   const buscarViajes = async (oId, dId) => {
-    if (!oId || !dId) { setError("Selecciona origen y destino"); return; }
-    if (oId === dId) { setError("El origen y destino no pueden ser iguales"); return; }
-    setError(""); setBuscando(true); setViajes([]); setViajeSelec(null); setAsientos([]); setAsientoSel(null);
-    try {
-      const params = new URLSearchParams({ origenId: oId, destinoId: dId, page: 0, size: 20 });
-      const res = await fetch(`/api/v1/viajes/disponibles?${params}`, { headers });
-      const data = await res.json();
-      setViajes(data.content || data || []);
-      setBuscado(true);
-    } catch { setError("Error al buscar viajes"); }
-    finally { setBuscando(false); }
-  };
+  if (!oId || !dId) { setError("Selecciona origen y destino"); return; }
+  if (oId === dId) { setError("El origen y destino no pueden ser iguales"); return; }
+  setError(""); setBuscando(true); setViajes([]); setViajeSelec(null); setAsientos([]); setAsientoSel(null);
+  try {
+    const params = new URLSearchParams({ origenId: oId, destinoId: dId, page: 0, size: 20 });
+    const res = await fetch(`/api/v1/viajes/disponibles?${params}`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.mensaje || err.message || `Error del servidor (${res.status})`);
+    }
+    const data = await res.json();
+    const lista = Array.isArray(data) ? data
+                : Array.isArray(data?.content) ? data.content
+                : [];
+    setViajes(lista);
+    setBuscado(true);
+  } catch (err) {
+    setError(err.message || "Error al buscar viajes. Verifica que el servidor esté activo.");
+    setViajes([]);
+    setBuscado(true);
+  } finally {
+    setBuscando(false);
+  }
+};
 
   const buscar = async (e) => {
     e.preventDefault();
@@ -888,48 +922,52 @@ export default function PasajesPage() {
     const errores = [];
     try {
       // ── Procesar pasajes ──
-      for (const item of carrito.filter(i => i.tipo === "pasaje")) {
-        try {
-          const res = await fetch("/api/v1/boletos/comprar", {
-            method: "POST", headers,
-            body: JSON.stringify({
-              viajeId:        item.datos.viajeId,
-              asientoId:      item.datos.asientoId,
-              clienteId:      0,
-              metodoPago,
-              referenciaPago: datosExtra.operacion || null,
-              observaciones:  `Carrito · ${metodoPago}${datosExtra.nombre ? " — " + datosExtra.nombre : ""}`,
-            }),
-          });
-          if (!res.ok) {
-            const d = await res.json().catch(() => ({}));
-            errores.push(d.mensaje || d.message || `Error en pasaje ${item.id}`);
-          }
-        } catch (e) { errores.push(e.message); }
-      }
+     for (const item of carrito.filter(i => i.tipo === "encomienda")) {
+  try {
+    const d = item.datos;
+    const payload = {
+      sucursalOrigenId:     Number(d.origenId),
+      sucursalDestinoId:    Number(d.destinoId),
+      destinatarioNombre:   d.destinatario,
+      destinatarioTelefono: d.telefono || "",
+      descripcionContenido: d.descripcion || "Sin descripción",
+      pesoKg:               parseFloat(d.peso) || 0,
+      metodoPago,
+      referenciaPago:       datosExtra.operacion || null,
+      observaciones:        `Remitente: ${d.remitente}`,
+      costo:                item.precio,
+    };
+    const res = await fetch("/api/v1/encomiendas/solicitar", {  // ← URL corregida
+      method: "POST", headers,
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const respData = await res.json().catch(() => ({}));
+      errores.push(respData.mensaje || respData.message || `Error en encomienda: ${item.descripcion}`);
+    }
+  } catch (e) { errores.push(e.message); }
+}
 
       // ── Procesar encomiendas ── guardadas en la BD con el endpoint correcto
       for (const item of carrito.filter(i => i.tipo === "encomienda")) {
         try {
           const d = item.datos;
-          const payload = {
-            sucursalOrigenId:    Number(d.origenId),
-            sucursalDestinoId:   Number(d.destinoId),
-            remitenteNombre:     d.remitente,
-            destinatarioNombre:  d.destinatario,
-            destinatarioTelefono: d.telefono || "",
-            descripcionContenido: d.descripcion || "Sin descripción",
-            pesoKg:              parseFloat(d.peso) || 0,
-            tipoEnvio:           d.tipoEnvio || "NORMAL",
-            costo:               item.precio,
-            metodoPago,
-            referenciaPago:      datosExtra.operacion || null,
-            observaciones:       `Pago: ${metodoPago}${datosExtra.nombre ? " — " + datosExtra.nombre : ""}`,
-          };
-          const res = await fetch("/api/v1/encomiendas", {
-            method: "POST", headers,
-            body: JSON.stringify(payload),
-          });
+const payload = {
+  sucursalOrigenId:    Number(d.origenId),
+  sucursalDestinoId:   Number(d.destinoId),
+  destinatarioNombre:  d.destinatario,
+  destinatarioTelefono: d.telefono || "",
+  descripcionContenido: d.descripcion || "Sin descripción",
+  pesoKg:              parseFloat(d.peso) || 0,
+  metodoPago,
+  referenciaPago:      datosExtra.operacion || null,
+  observaciones:       datosExtra.nombre ? `Remitente: ${d.remitente}` : `Remitente: ${d.remitente}`,
+  costo:               item.precio,
+};
+         const res = await fetch("/api/v1/encomiendas/solicitar", {
+  method: "POST", headers,
+  body: JSON.stringify(payload),
+});
           if (!res.ok) {
             const respData = await res.json().catch(() => ({}));
             errores.push(respData.mensaje || respData.message || `Error en encomienda: ${item.descripcion}`);
@@ -973,7 +1011,6 @@ export default function PasajesPage() {
           <li><a onClick={() => setTabActivo("encomiendas")} style={{ cursor: "pointer", color: tabActivo === "encomiendas" ? "var(--amarillo)" : undefined }}>📦 Encomiendas</a></li>
         </ul>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {/* Botón carrito */}
           <button
             onClick={() => setCarritoAbierto(true)}
             style={{
@@ -994,7 +1031,6 @@ export default function PasajesPage() {
               }}>{carrito.length}</span>
             )}
           </button>
-
           {session ? (
             <button className="btn-admin-nav" onClick={() => navigate("/cliente")}>
               👤 {session.username}
@@ -1007,6 +1043,52 @@ export default function PasajesPage() {
           )}
         </div>
       </nav>
+
+      {/* ── LOADER INICIAL mientras cargan las sucursales ── */}
+      {cargandoSucursales && (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", minHeight: "60vh", gap: 16,
+        }}>
+          <div style={{ fontSize: 52, animation: "pulse 1s infinite" }}>🚌</div>
+          <p style={{ color: "var(--verde-medio)", fontSize: 16, fontWeight: 600 }}>
+            Cargando información de rutas...
+          </p>
+        </div>
+      )}
+
+      {/* ── ERROR al cargar sucursales ── */}
+      {!cargandoSucursales && errorSucursales && (
+        <div style={{
+          maxWidth: 520, margin: "4rem auto", padding: "0 1.5rem", textAlign: "center",
+        }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ color: "white", fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>
+            No se pudo conectar al servidor
+          </h2>
+          <p style={{ color: "var(--verde-medio)", fontSize: 14, marginBottom: 24 }}>
+            Verifica que el backend esté corriendo en el puerto 8080 y vuelve a intentarlo.
+          </p>
+          <button
+            onClick={() => { setCargandoSucursales(true); setErrorSucursales(false); fetch("/api/v1/sucursales", { headers }).then(r => r.ok ? r.json() : []).then(d => { setSucursales(Array.isArray(d) ? d : []); setCargandoSucursales(false); }).catch(() => { setErrorSucursales(true); setCargandoSucursales(false); }); }}
+            style={{
+              background: "linear-gradient(135deg, var(--verde), #0f9183)",
+              color: "white", border: "none", borderRadius: 10, padding: "0.8rem 2rem",
+              fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            🔄 Reintentar
+          </button>
+          <div style={{ marginTop: 16 }}>
+            <button onClick={() => navigate("/")} style={{ background: "none", border: "none", color: "var(--verde-medio)", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>
+              ← Volver al inicio
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONTENIDO NORMAL (sucursales cargadas) ── */}
+      {!cargandoSucursales && !errorSucursales && (<>
 
       {/* Banner de pago exitoso */}
       {pagoExitoso && (
@@ -1351,6 +1433,7 @@ export default function PasajesPage() {
         @keyframes pulse { 0%{transform:scale(0.8);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
         select option { background: #10403B; color: white; }
       `}</style>
+      </>)}
     </div>
   );
 }

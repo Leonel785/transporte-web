@@ -13,7 +13,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
     @EntityGraph(attributePaths = {"usuario"})
     Optional<Cliente> findByDniRuc(String dniRuc);
-
+Optional<Cliente> findByUsuarioId(Long usuarioId);
     @EntityGraph(attributePaths = {"usuario"})
     Optional<Cliente> findByUsuarioUsername(String username);
 

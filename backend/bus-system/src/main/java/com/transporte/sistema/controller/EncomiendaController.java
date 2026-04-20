@@ -1,6 +1,7 @@
 package com.transporte.sistema.controller;
 
 import com.transporte.sistema.dto.request.ActualizarEstadoEncomiendaRequest;
+import com.transporte.sistema.dto.request.EncomiendaClienteRequest;
 import com.transporte.sistema.dto.request.EncomiendaRequest;
 import com.transporte.sistema.dto.response.EncomiendaResponse;
 import com.transporte.sistema.dto.response.MovimientoEncomiendaResponse;
@@ -25,14 +26,12 @@ public class EncomiendaController {
 
     private final EncomiendaService encomiendaService;
 
-    /** Listar todas las encomiendas - solo ADMIN */
+    /** Listar todas - solo ADMIN */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<EncomiendaResponse>> listarTodas() {
         return ResponseEntity.ok(encomiendaService.listarTodas());
     }
-
-    // ── Endpoints existentes ─────────────────────────────────────────────────
 
     /** Tracking público por número de guía */
     @GetMapping("/tracking/{numeroGuia}")
@@ -66,11 +65,22 @@ public class EncomiendaController {
                 sucursalId, PageRequest.of(page, size, Sort.by("createdAt").descending())));
     }
 
+    /** Registro desde panel admin/cajero — requiere remitenteId y destinatarioId */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
     public ResponseEntity<EncomiendaResponse> registrar(@Valid @RequestBody EncomiendaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(encomiendaService.registrar(request));
+    }
+
+    /** Solicitud desde portal cliente — deduce el remitente del token JWT */
+    @PostMapping("/solicitar")
+    @PreAuthorize("hasRole('CLIENTE')")
+    public ResponseEntity<EncomiendaResponse> solicitar(
+            @Valid @RequestBody EncomiendaClienteRequest request,
+            Principal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(encomiendaService.solicitarEncomienda(request, principal.getName()));
     }
 
     @PatchMapping("/{id}/estado")
@@ -81,23 +91,14 @@ public class EncomiendaController {
         return ResponseEntity.ok(encomiendaService.actualizarEstado(id, request));
     }
 
-    // ── Portal cliente ────────────────────────────────────────────────────────
-
-    /**
-     * GET /api/v1/encomiendas/mis-encomiendas
-     * Encomiendas del cliente autenticado (como remitente).
-     */
+    /** Encomiendas del cliente autenticado como remitente */
     @GetMapping("/mis-encomiendas")
     @PreAuthorize("hasRole('CLIENTE')")
     public ResponseEntity<List<EncomiendaResponse>> misEncomiendas(Principal principal) {
         return ResponseEntity.ok(encomiendaService.misEncomiendas(principal.getName()));
     }
 
-    /**
-     * GET /api/v1/encomiendas/{id}/movimientos
-     * Tracking detallado de una encomienda.
-     * CLIENTE solo puede ver las suyas; ADMIN/CAJERO pueden ver todas.
-     */
+    /** Movimientos/tracking de una encomienda */
     @GetMapping("/{id}/movimientos")
     @PreAuthorize("hasAnyRole('ADMIN','CAJERO','CLIENTE')")
     public ResponseEntity<List<MovimientoEncomiendaResponse>> movimientos(

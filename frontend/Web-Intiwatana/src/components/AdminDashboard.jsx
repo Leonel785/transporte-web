@@ -1,27 +1,59 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { useAuth } from "../context/AuthContext";
 import LogoSVG from "./LogoSVG";
 
+// ─── Error Boundary ───────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error("AdminDashboard error:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "2rem", textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+          <h3 style={{ color: C.rojo, marginBottom: 8 }}>Error al cargar este módulo</h3>
+          <p style={{ color: C.gris, fontSize: 13, marginBottom: 16 }}>
+            {this.state.error?.message || "Error inesperado"}
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            style={{ background: C.verde, color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.4rem", cursor: "pointer", fontWeight: 700 }}
+          >
+            🔄 Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── Paleta ───────────────────────────────────────────
 const C = {
-  verde:    "#127369",
-  oscuro:   "#0d3330",
-  amarillo: "#F5C518",
-  medio:    "#7a9e9b",
-  gris:     "#4C5958",
-  fondo:    "#f0f4f3",
-  blanco:   "#ffffff",
-  rojo:     "#e05252",
-  naranja:  "#e67e22",
+  verde:     "#127369",
+  oscuro:    "#0d3330",
+  amarillo:  "#F5C518",
+  medio:     "#7a9e9b",
+  gris:      "#4C5958",
+  grisClaro: "#8AA6A3",
+  fondo:     "#f0f4f3",
+  blanco:    "#ffffff",
+  rojo:      "#e05252",
+  naranja:   "#e67e22",
 };
 
 // ─── Helpers ──────────────────────────────────────────
 function fmtFecha(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("es-PE", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleString("es-PE", {
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return "—"; }
 }
 
 // ─── Hook: contador animado ───────────────────────────
@@ -265,179 +297,349 @@ function TableWrap({ load, empty, children }) {
 // SECCIÓN: Dashboard Principal
 // ═══════════════════════════════════════════════════════
 function DashboardHome({ headers, onNav }) {
-  const [data, setData] = useState(null);
+  const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paginaViajes, setPaginaViajes] = useState(0);
+  const VIAJES_POR_PAG = 8;
+  // Ref estable para headers — evita re-renders por recreacion del objeto
+  const headersRef = useRef(headers);
+  useEffect(() => { headersRef.current = headers; }, [headers]);
+
+  const cargarDatos = useCallback(async () => {
+    const h = headersRef.current;
+    setLoading(true);
+    try {
+      const [rutas, viajes, buses, clientesResp, encomiendas, sucursales] = await Promise.all([
+        fetch("/api/v1/rutas",       { headers: h }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch("/api/v1/viajes",      { headers: h }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch("/api/v1/buses",       { headers: h }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch("/api/v1/clientes?page=0&size=1", { headers: h }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+        fetch("/api/v1/encomiendas", { headers: h }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch("/api/v1/sucursales",  { headers: h }).then(r => r.ok ? r.json() : []).catch(() => []),
+      ]);
+
+      // Normaliza respuesta: puede ser array directo o Page<> { content: [], totalElements: N }
+      const toArr = (d) => Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : [];
+      const toTotal = (d) => typeof d?.totalElements === "number" ? d.totalElements : toArr(d).length;
+
+      const viajesArr = toArr(viajes);
+      const busesArr  = toArr(buses);
+      const rutasArr  = toArr(rutas);
+      const sucArr    = toArr(sucursales);
+      const encArr    = toArr(encomiendas);
+
+      // clientes viene como Page<> → totalElements es el total real
+      const clientesTotal = toTotal(clientesResp);
+
+      // Stats por estado
+      const viajeStats = viajesArr.reduce((acc, v) => {
+        acc[v.estado] = (acc[v.estado] || 0) + 1; return acc;
+      }, {});
+      const encStats = encArr.reduce((acc, e) => {
+        acc[e.estado] = (acc[e.estado] || 0) + 1; return acc;
+      }, {});
+
+      // Buses activos vs inactivos
+      const busesActivos = busesArr.filter(b => b.activo !== false).length;
+
+      // Ocupación promedio de asientos en viajes programados
+      const viajesProg = viajesArr.filter(v => v.estado === "PROGRAMADO");
+      const ocupProm = viajesProg.length > 0
+        ? Math.round(viajesProg.reduce((s, v) => {
+            const tot  = v.totalAsientos || 1;
+            const disp = v.asientosDisponibles ?? tot;
+            return s + ((tot - disp) / tot) * 100;
+          }, 0) / viajesProg.length)
+        : 0;
+
+      // Ingresos estimados de encomiendas
+      const ingresosEnc = encArr.reduce((s, e) =>
+        s + (parseFloat(e.costo) || 0), 0);
+
+      // Viajes ordenados por fecha de salida descendente (más recientes primero)
+      const viajesOrdenados = [...viajesArr].sort((a, b) =>
+        new Date(b.fechaHoraSalida) - new Date(a.fechaHoraSalida));
+
+      setData({
+        rutas:        rutasArr.length,
+        viajes:       viajesArr.length,
+        buses:        busesActivos,
+        clientes:     clientesTotal,
+        encomiendas:  encArr.length,
+        sucursales:   sucArr.length,
+        viajeStats,
+        encStats,
+        viajesOrdenados,
+        programados:  viajeStats["PROGRAMADO"] || 0,
+        enCurso:      viajeStats["EN_CURSO"]    || 0,
+        finalizados:  viajeStats["FINALIZADO"]  || 0,
+        ocupProm,
+        ingresosEnc,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [rutas, viajes, buses, clientes, encomiendas, sucursales] = await Promise.all([
-          fetch("/api/v1/rutas", { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-          fetch("/api/v1/viajes", { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-          fetch("/api/v1/buses", { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-          fetch("/api/v1/clientes", { headers }).then(r => r.ok ? r.json() : {}).catch(() => {}),
-          fetch("/api/v1/encomiendas", { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-          fetch("/api/v1/sucursales", { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-        ]);
-
-        const viajesArr = Array.isArray(viajes) ? viajes : [];
-        const busesArr  = Array.isArray(buses)  ? buses  : [];
-        const rutasArr  = Array.isArray(rutas)  ? rutas  : [];
-        const sucArr    = Array.isArray(sucursales) ? sucursales : [];
-        const encArr    = Array.isArray(encomiendas) ? encomiendas : [];
-        const clientesN = Array.isArray(clientes) ? clientes.length
-          : (clientes?.content?.length ?? clientes?.totalElements ?? 0);
-
-        // Estadísticas de viajes por estado
-        const viajeStats = viajesArr.reduce((acc, v) => {
-          acc[v.estado] = (acc[v.estado] || 0) + 1;
-          return acc;
-        }, {});
-
-        // Encomiendas por estado
-        const encStats = encArr.reduce((acc, e) => {
-          acc[e.estado] = (acc[e.estado] || 0) + 1;
-          return acc;
-        }, {});
-
-        setData({
-          rutas: rutasArr.length,
-          viajes: viajesArr.length,
-          buses: busesArr.length,
-          clientes: clientesN,
-          encomiendas: encArr.length,
-          sucursales: sucArr.length,
-          viajeStats,
-          encStats,
-          viajesRecientes: viajesArr.slice(0, 5),
-          programados: viajeStats["PROGRAMADO"] || 0,
-          enCurso: viajeStats["EN_CURSO"] || 0,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    cargarDatos();
+  }, [cargarDatos]);
 
   if (loading) return (
     <div style={{ padding: "3rem", textAlign: "center" }}>
       <div className="pulse-logo">🚌</div>
-      <p style={{ color: C.medio, marginTop: 12 }}>Cargando dashboard...</p>
+      <p style={{ color: C.medio, marginTop: 12, fontWeight: 600 }}>Cargando dashboard...</p>
     </div>
   );
 
   const donutViajes = Object.entries(data.viajeStats || {}).map(([k, v]) => ({ nombre: k.replace(/_/g, " "), valor: v }));
   const donutEnc    = Object.entries(data.encStats   || {}).map(([k, v]) => ({ nombre: k.replace(/_/g, " "), valor: v }));
 
+  // Paginación local de viajes
+  const totalPags     = Math.ceil((data.viajesOrdenados?.length || 0) / VIAJES_POR_PAG);
+  const viajesPagina  = (data.viajesOrdenados || []).slice(
+    paginaViajes * VIAJES_POR_PAG, (paginaViajes + 1) * VIAJES_POR_PAG
+  );
+
+  // Fecha y hora actual
+  const ahora = new Date().toLocaleString("es-PE", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+
   return (
     <div style={{ animation: "fadeUp 0.4s ease" }}>
-      {/* Hero banner */}
+
+      {/* ── Hero banner ─────────────────────────────────── */}
       <div style={{
         background: `linear-gradient(135deg, ${C.oscuro} 0%, ${C.verde} 100%)`,
         borderRadius: 18, padding: "26px 30px", marginBottom: 24,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         position: "relative", overflow: "hidden",
       }}>
-        <div style={{
-          position: "absolute", right: -20, top: -20,
-          width: 180, height: 180,
-          background: "rgba(255,255,255,0.04)",
-          borderRadius: "50%",
-        }} />
-        <div style={{
-          position: "absolute", right: 40, top: 10,
-          width: 100, height: 100,
-          background: "rgba(245,197,24,0.08)",
-          borderRadius: "50%",
-        }} />
+        <div style={{ position: "absolute", right: -20, top: -20, width: 180, height: 180, background: "rgba(255,255,255,0.04)", borderRadius: "50%" }} />
+        <div style={{ position: "absolute", right: 40, top: 10, width: 100, height: 100, background: "rgba(245,197,24,0.08)", borderRadius: "50%" }} />
         <div>
-          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginBottom: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            Panel de control
+          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginBottom: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            Panel de control · {ahora}
           </div>
-          <div style={{ color: C.blanco, fontSize: 28, fontWeight: 800, fontFamily: "'Playfair Display',serif" }}>
+          <div style={{ color: C.blanco, fontSize: 26, fontWeight: 800, fontFamily: "'Playfair Display',serif" }}>
             INTIWATANA S.R.L.
           </div>
-          <div style={{ color: C.amarillo, fontSize: 13, marginTop: 4 }}>
-            {data.programados} viajes programados · {data.enCurso} en curso
+          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+            <span style={{ background: "rgba(245,197,24,0.18)", color: C.amarillo, borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+              📅 {data.programados} programados
+            </span>
+            <span style={{ background: "rgba(52,199,89,0.18)", color: "#22c55e", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+              🚌 {data.enCurso} en curso
+            </span>
+            <span style={{ background: "rgba(138,166,163,0.18)", color: "#94a3b8", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+              ✅ {data.finalizados} finalizados
+            </span>
           </div>
         </div>
-        <div style={{ fontSize: 60, opacity: 0.9 }}>🚌</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ fontSize: 52 }}>🚌</div>
+          <button onClick={cargarDatos} style={{
+            background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: 8, color: "rgba(255,255,255,0.8)", cursor: "pointer",
+            fontSize: 11, padding: "4px 12px", fontFamily: "inherit", fontWeight: 600,
+          }}>
+            ↻ Actualizar
+          </button>
+        </div>
       </div>
 
-      {/* Stat Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(155px,1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard icon="🗺" valor={data.rutas}       label="Rutas activas"   color={C.verde}   onClick={() => onNav("rutas")} />
-        <StatCard icon="📅" valor={data.viajes}      label="Total viajes"    color={C.amarillo} onClick={() => onNav("viajes")} />
-        <StatCard icon="🚌" valor={data.buses}       label="Flota de buses"  color={C.verde}   onClick={() => onNav("buses")} />
-        <StatCard icon="👥" valor={data.clientes}    label="Clientes"        color={C.naranja} onClick={() => onNav("clientes")} />
-        <StatCard icon="📦" valor={data.encomiendas} label="Encomiendas"     color={C.rojo}    onClick={() => onNav("encomiendas")} />
-        <StatCard icon="🏢" valor={data.sucursales}  label="Sucursales"      color={C.gris}    onClick={() => onNav("sucursales")} />
+      {/* ── Stat Cards ──────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 14, marginBottom: 24 }}>
+        <StatCard icon="🗺"  valor={data.rutas}       label="Rutas activas"  color={C.verde}   onClick={() => onNav("rutas")} />
+        <StatCard icon="📅"  valor={data.viajes}      label="Total viajes"   color={C.amarillo} onClick={() => onNav("viajes")} />
+        <StatCard icon="🚌"  valor={data.buses}       label="Flota activa"   color={C.verde}   onClick={() => onNav("buses")} />
+        <StatCard icon="👥"  valor={data.clientes}    label="Clientes"       color={C.naranja} onClick={() => onNav("clientes")} />
+        <StatCard icon="📦"  valor={data.encomiendas} label="Encomiendas"    color={C.rojo}    onClick={() => onNav("encomiendas")} />
+        <StatCard icon="🏢"  valor={data.sucursales}  label="Sucursales"     color={C.gris}    onClick={() => onNav("sucursales")} />
       </div>
 
-      {/* Fila de gráficos + acciones */}
+      {/* ── KPI secundarios ─────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
+        {/* Ocupación promedio */}
+        <div style={{ background: C.blanco, borderRadius: 14, padding: "16px 20px", border: "1.5px solid #e2edeb", boxShadow: "0 2px 10px rgba(16,64,59,0.05)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.medio, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            💺 Ocupación promedio (viajes programados)
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.oscuro, marginBottom: 8 }}>{data.ocupProm}%</div>
+          <ProgressBar value={data.ocupProm} max={100} color={data.ocupProm > 70 ? C.rojo : data.ocupProm > 40 ? C.naranja : C.verde} />
+        </div>
+
+        {/* Ingresos encomiendas */}
+        <div style={{ background: C.blanco, borderRadius: 14, padding: "16px 20px", border: "1.5px solid #e2edeb", boxShadow: "0 2px 10px rgba(16,64,59,0.05)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.medio, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            💰 Ingresos encomiendas (acumulado)
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: C.verde, fontFamily: "'Playfair Display',serif" }}>
+            S/ {data.ingresosEnc.toFixed(2)}
+          </div>
+          <div style={{ fontSize: 12, color: C.medio, marginTop: 4 }}>
+            {data.encomiendas} encomiendas registradas
+          </div>
+        </div>
+
+        {/* Viajes por estado (mini resumen) */}
+        <div style={{ background: C.blanco, borderRadius: 14, padding: "16px 20px", border: "1.5px solid #e2edeb", boxShadow: "0 2px 10px rgba(16,64,59,0.05)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.medio, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+            📊 Distribución de viajes
+          </div>
+          {Object.entries(data.viajeStats || {}).map(([estado, cant]) => (
+            <div key={estado} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <Badge text={estado} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: C.oscuro }}>{cant}</span>
+            </div>
+          ))}
+          {!Object.keys(data.viajeStats || {}).length && (
+            <p style={{ color: C.medio, fontSize: 13 }}>Sin viajes registrados</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Gráficos + Acceso rápido ────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 18, marginBottom: 20 }}>
-        {/* Donut Viajes */}
         <div className="card-panel">
           <div className="panel-title">📊 Estado de Viajes</div>
           {donutViajes.length > 0
-            ? <DonutChart data={donutViajes} size={120} />
-            : <p style={{ color: C.medio, fontSize: 13 }}>Sin datos</p>}
+            ? <DonutChart data={donutViajes} size={130} />
+            : <p style={{ color: C.medio, fontSize: 13 }}>Sin datos aún</p>}
         </div>
 
-        {/* Donut Encomiendas */}
         <div className="card-panel">
           <div className="panel-title">📦 Estado Encomiendas</div>
           {donutEnc.length > 0
-            ? <DonutChart data={donutEnc} size={120} />
-            : <p style={{ color: C.medio, fontSize: 13 }}>Sin encomiendas</p>}
+            ? <DonutChart data={donutEnc} size={130} />
+            : <p style={{ color: C.medio, fontSize: 13 }}>Sin encomiendas aún</p>}
         </div>
 
-        {/* Acciones rápidas */}
         <div className="card-panel">
           <div className="panel-title">⚡ Acceso rápido</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { icon: "🏢", label: "Sucursales", key: "sucursales" },
-              { icon: "🗺", label: "Rutas", key: "rutas" },
-              { icon: "🚌", label: "Buses", key: "buses" },
-              { icon: "📅", label: "Viajes", key: "viajes" },
-              { icon: "👥", label: "Clientes", key: "clientes" },
-              { icon: "📦", label: "Encomiendas", key: "encomiendas" },
+              { icon: "🏢", label: "Sucursales",  key: "sucursales",  badge: data.sucursales },
+              { icon: "🗺",  label: "Rutas",       key: "rutas",       badge: data.rutas },
+              { icon: "🚌", label: "Buses",        key: "buses",       badge: data.buses },
+              { icon: "📅", label: "Viajes",       key: "viajes",      badge: data.viajes },
+              { icon: "👥", label: "Clientes",     key: "clientes",    badge: data.clientes },
+              { icon: "📦", label: "Encomiendas",  key: "encomiendas", badge: data.encomiendas },
             ].map(a => (
-              <button key={a.key} className="quick-btn" onClick={() => onNav(a.key)}>
-                <span>{a.icon}</span> {a.label}
+              <button key={a.key} className="quick-btn" onClick={() => onNav(a.key)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span><span style={{ marginRight: 6 }}>{a.icon}</span>{a.label}</span>
+                <span style={{ background: "rgba(18,115,105,0.12)", color: C.verde, borderRadius: 12, padding: "2px 9px", fontSize: 11, fontWeight: 800 }}>
+                  {a.badge}
+                </span>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Viajes recientes */}
-      {data.viajesRecientes?.length > 0 && (
-        <div className="card-panel">
-          <div className="panel-title">🕐 Viajes recientes</div>
-          <table className="adm-table" style={{ marginTop: 8 }}>
+      {/* ── Tabla de viajes con paginación ──────────────── */}
+      <div className="card-panel">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div className="panel-title" style={{ marginBottom: 0 }}>🕐 Todos los viajes</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 12, color: C.medio }}>
+              {data.viajesOrdenados?.length || 0} viajes · pág. {paginaViajes + 1} / {Math.max(totalPags, 1)}
+            </span>
+            <button
+              disabled={paginaViajes === 0}
+              onClick={() => setPaginaViajes(p => p - 1)}
+              style={{
+                background: paginaViajes === 0 ? "#f0f4f3" : C.verde,
+                color: paginaViajes === 0 ? C.grisClaro : "white",
+                border: "none", borderRadius: 8, padding: "5px 12px",
+                cursor: paginaViajes === 0 ? "default" : "pointer",
+                fontWeight: 700, fontSize: 13,
+              }}
+            >← Ant.</button>
+            <button
+              disabled={paginaViajes >= totalPags - 1}
+              onClick={() => setPaginaViajes(p => p + 1)}
+              style={{
+                background: paginaViajes >= totalPags - 1 ? "#f0f4f3" : C.verde,
+                color: paginaViajes >= totalPags - 1 ? C.grisClaro : "white",
+                border: "none", borderRadius: 8, padding: "5px 12px",
+                cursor: paginaViajes >= totalPags - 1 ? "default" : "pointer",
+                fontWeight: 700, fontSize: 13,
+              }}
+            >Sig. →</button>
+          </div>
+        </div>
+
+        {viajesPagina.length === 0 ? (
+          <p style={{ color: C.medio, fontSize: 13, padding: "1rem 0" }}>Sin viajes registrados.</p>
+        ) : (
+          <table className="adm-table">
             <thead>
               <tr>
-                <th>Ruta</th><th>Bus</th><th>Salida</th><th>Precio</th><th>Estado</th>
+                <th>Ruta</th><th>Autobús</th><th>Salida</th><th>Llegada est.</th><th>Precio</th><th>Asientos libres</th><th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              {data.viajesRecientes.map(v => (
-                <tr key={v.id} className="tr-hover">
-                  <td>{v.ruta?.origen?.ciudad || "—"} → {v.ruta?.destino?.ciudad || "—"}</td>
-                  <td><span className="td-codigo">{v.bus?.placa || "—"}</span></td>
-                  <td style={{ fontSize: 12 }}>{fmtFecha(v.fechaHoraSalida)}</td>
-                  <td>S/ {v.precioAdulto || "—"}</td>
-                  <td><Badge text={v.estado} /></td>
-                </tr>
-              ))}
+              {viajesPagina.map(v => {
+                const libres = v.asientosDisponibles ?? "—";
+                const total  = v.totalAsientos ?? "—";
+                const pct    = typeof libres === "number" && typeof total === "number" && total > 0
+                  ? Math.round(((total - libres) / total) * 100) : null;
+                return (
+                  <tr key={v.id} className="tr-hover">
+                    <td>
+                      <strong style={{ color: C.oscuro }}>
+                        {v.ruta?.origen?.ciudad || "—"} → {v.ruta?.destino?.ciudad || "—"}
+                      </strong>
+                      {v.ruta?.codigo && (
+                        <div style={{ fontSize: 10, color: C.medio, marginTop: 1 }}>{v.ruta.codigo}</div>
+                      )}
+                    </td>
+                    <td><span className="td-codigo">{v.bus?.placa || "—"}</span></td>
+                    <td style={{ fontSize: 12 }}>{fmtFecha(v.fechaHoraSalida)}</td>
+                    <td style={{ fontSize: 12, color: C.medio }}>{fmtFecha(v.fechaHoraLlegadaEstimada)}</td>
+                    <td><strong style={{ color: C.verde }}>S/ {v.precioAdulto || "—"}</strong></td>
+                    <td>
+                      <span style={{
+                        fontWeight: 700, fontSize: 12,
+                        color: typeof libres === "number" && libres < 5 ? C.rojo : C.verde,
+                      }}>
+                        {libres} / {total}
+                      </span>
+                      {pct !== null && (
+                        <div style={{ marginTop: 4, width: 70 }}>
+                          <ProgressBar value={pct} max={100} color={pct > 80 ? C.rojo : pct > 50 ? C.naranja : C.verde} />
+                        </div>
+                      )}
+                    </td>
+                    <td><Badge text={v.estado} /></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+
+        {/* Paginación inferior */}
+        {totalPags > 1 && (
+          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 14 }}>
+            {Array.from({ length: totalPags }, (_, i) => (
+              <button key={i} onClick={() => setPaginaViajes(i)} style={{
+                width: 30, height: 30, borderRadius: 8,
+                background: paginaViajes === i ? C.verde : "#f0f4f3",
+                color: paginaViajes === i ? "white" : C.gris,
+                border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
+              }}>
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
@@ -936,7 +1138,15 @@ function CrudViajes({ headers, showToast }) {
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.mensaje || "Error"); }
       const data = await res.json();
-      setItems(prev => isEdit ? prev.map(x => x.id === data.id ? data : x) : [...prev, data]);
+      setItems(prev => {
+        if (isEdit) {
+          return prev.map(x => {
+            if (x.id !== data.id) return x;
+            return { ...x, ...data, ruta: data.ruta ?? x.ruta, bus: data.bus ?? x.bus };
+          });
+        }
+        return [...prev, data];
+      });
       showToast(isEdit ? "✓ Viaje actualizado" : "✓ Viaje creado");
       setModal(null);
     } catch (err) { showToast("⚠ " + err.message); }
@@ -988,6 +1198,43 @@ function CrudViajes({ headers, showToast }) {
           <option value="CANCELADO">Cancelado</option>
         </select>
       </div>
+
+      {/* Banner ayuda cuando no hay viajes */}
+      {!load && items.length === 0 && (
+        <div style={{
+          background: "rgba(245,197,24,0.07)", border: "1.5px dashed rgba(245,197,24,0.35)",
+          borderRadius: 14, padding: "1.4rem 1.8rem", marginBottom: 16,
+          display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 700, color: C.amarillo, marginBottom: 4, fontSize: 15 }}>
+              ⚠️ Sin viajes registrados
+            </div>
+            <div style={{ fontSize: 13, color: C.grisClaro, lineHeight: 1.5 }}>
+              Puedes crear viajes manualmente con <strong>+ Nuevo viaje</strong>, o usar el botón
+              de la derecha para generar viajes de prueba automáticamente si ya tienes buses y rutas cargados.
+            </div>
+          </div>
+          <button
+            style={{
+              background: "rgba(245,197,24,0.15)", border: "1.5px solid rgba(245,197,24,0.5)",
+              color: C.amarillo, borderRadius: 10, padding: "0.6rem 1.2rem",
+              fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+              whiteSpace: "nowrap",
+            }}
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/v1/admin/tools/generar-viajes-prueba", { method: "POST", headers });
+                const data = await res.json();
+                showToast("✓ " + (data.mensaje || "Viajes generados"));
+                cargar();
+              } catch { showToast("⚠ No se pudieron generar viajes. Verifica que haya buses y rutas."); }
+            }}
+          >
+            🚌 Generar viajes de prueba
+          </button>
+        </div>
+      )}
 
       <TableWrap load={load} empty={!fil.length && "Sin viajes registrados"}>
         <table className="adm-table">
@@ -1042,12 +1289,28 @@ function CrudViajes({ headers, showToast }) {
               <input type="number" step="0.01" value={form.precioNino || ""} onChange={e => setForm(f => ({ ...f, precioNino: e.target.value }))} placeholder="0.00" />
             </Field>
             <Field label="Estado" style={{ gridColumn: "1/-1" }}>
-              <select className="lf-select" value={form.estado || "PROGRAMADO"} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
-                <option value="PROGRAMADO">PROGRAMADO</option>
-                <option value="EN_CURSO">EN CURSO</option>
-                <option value="FINALIZADO">FINALIZADO</option>
-                <option value="CANCELADO">CANCELADO</option>
-              </select>
+              {(() => {
+                const transiciones = {
+                  PROGRAMADO: ["PROGRAMADO", "EN_CURSO", "CANCELADO"],
+                  EN_CURSO:   ["EN_CURSO", "FINALIZADO", "CANCELADO"],
+                  FINALIZADO: ["FINALIZADO"],
+                  CANCELADO:  ["CANCELADO"],
+                };
+                // modal es el objeto viaje (o la string "nuevo")
+                const estadoOriginal = (typeof modal === "object" && modal?.estado) ? modal.estado : "PROGRAMADO";
+                const opciones = transiciones[estadoOriginal] || ["PROGRAMADO", "EN_CURSO", "FINALIZADO", "CANCELADO"];
+                const labels = { PROGRAMADO: "PROGRAMADO", EN_CURSO: "EN CURSO", FINALIZADO: "FINALIZADO", CANCELADO: "CANCELADO" };
+                return (
+                  <select className="lf-select" value={form.estado || "PROGRAMADO"} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
+                    {opciones.map(op => <option key={op} value={op}>{labels[op]}</option>)}
+                  </select>
+                );
+              })()}
+              {(modal?.estado === "FINALIZADO" || modal?.estado === "CANCELADO") && (
+                <div style={{ fontSize: 11, color: "#e67e22", marginTop: 4 }}>
+                  ⚠ Este viaje ya está {modal.estado.toLowerCase()} y no puede cambiar de estado.
+                </div>
+              )}
             </Field>
           </div>
         </ModalForm>
@@ -1175,32 +1438,59 @@ function CrudClientes({ headers, showToast }) {
 // CRUD: Encomiendas
 // ═══════════════════════════════════════════════════════
 function CrudEncomiendas({ headers, showToast }) {
-  const [items, setItems] = useState([]);
-  const [load, setLoad] = useState(true);
-  const [buscar, setBuscar] = useState("");
-  const [upd, setUpd] = useState(null);
+  const [items,   setItems]   = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
+  const [viajes,  setViajes]  = useState([]);
+  const [load,    setLoad]    = useState(true);
+  const [buscar,  setBuscar]  = useState("");
+  const [modal,   setModal]   = useState(null); // "estado" | "nuevo" | objeto-encomienda
+  const [form,    setForm]    = useState({});
+  const [conf,    setConf]    = useState(null);
   const [nuevoEst, setNuevoEst] = useState("");
-  const [obs, setObs] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [obs,     setObs]     = useState("");
+  const [saving,  setSaving]  = useState(false);
+
+  // Flujo de estados válidos (en orden)
+  const FLUJO = ["RECIBIDO","EN_ALMACEN","EN_TRANSITO","EN_DESTINO","LISTO_ENTREGA","ENTREGADO","DEVUELTO","PERDIDO"];
+  const FLUJO_LABELS = {
+    RECIBIDO:      "Recibido",
+    EN_ALMACEN:    "En almacén",
+    EN_TRANSITO:   "En tránsito",
+    EN_DESTINO:    "En destino",
+    LISTO_ENTREGA: "Listo para entrega",
+    ENTREGADO:     "Entregado",
+    DEVUELTO:      "Devuelto",
+    PERDIDO:       "Perdido",
+  };
 
   const cargar = useCallback(async () => {
     setLoad(true);
     try {
-      const r = await fetch("/api/v1/encomiendas", { headers });
-      const d = r.ok ? await r.json() : [];
-      setItems(Array.isArray(d) ? d : []);
-    } catch { showToast("⚠ Error al cargar"); setItems([]); }
+      const [rEnc, rCli, rSuc, rVia] = await Promise.all([
+        fetch("/api/v1/encomiendas", { headers }),
+        fetch("/api/v1/clientes",    { headers }),
+        fetch("/api/v1/sucursales",  { headers }),
+        fetch("/api/v1/viajes",      { headers }),
+      ]);
+      const toArr = d => Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : [];
+      setItems(toArr(rEnc.ok ? await rEnc.json() : []));
+      setClientes(toArr(rCli.ok ? await rCli.json() : []));
+      setSucursales(toArr(rSuc.ok ? await rSuc.json() : []));
+      setViajes(toArr(rVia.ok ? await rVia.json() : []));
+    } catch { showToast("⚠ Error al cargar"); }
     finally { setLoad(false); }
   }, [headers, showToast]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // ── Cambiar estado ──────────────────────────────────
   const actualizarEstado = async (e) => {
     e.preventDefault();
     if (!nuevoEst) return showToast("⚠ Selecciona nuevo estado");
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/encomiendas/${upd.id}/estado`, {
+      const res = await fetch(`/api/v1/encomiendas/${modal.id}/estado`, {
         method: "PATCH", headers,
         body: JSON.stringify({ nuevoEstado: nuevoEst, observacion: obs || null }),
       });
@@ -1208,55 +1498,132 @@ function CrudEncomiendas({ headers, showToast }) {
       const data = await res.json();
       setItems(prev => prev.map(x => x.id === data.id ? data : x));
       showToast("✓ Estado actualizado");
-      setUpd(null);
+      setModal(null);
     } catch (err) { showToast("⚠ " + err.message); }
     finally { setSaving(false); }
   };
 
+  // ── Crear encomienda ────────────────────────────────
+  const abrirNuevo = () => {
+    setForm({ remitenteId:"", destinatarioId:"", sucursalOrigenId:"", sucursalDestinoId:"", viajeId:"", descripcionContenido:"", pesoKg:"", valorDeclarado:"", metodoPago:"EFECTIVO", observaciones:"" });
+    setModal("nuevo");
+  };
+
+  const guardar = async (e) => {
+    e.preventDefault();
+    if (!form.remitenteId || !form.destinatarioId) return showToast("⚠ Remitente y destinatario obligatorios");
+    if (!form.sucursalOrigenId || !form.sucursalDestinoId) return showToast("⚠ Sucursales obligatorias");
+    if (!form.descripcionContenido || !form.pesoKg) return showToast("⚠ Contenido y peso obligatorios");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/v1/encomiendas", {
+        method: "POST", headers,
+        body: JSON.stringify({
+          remitenteId:      parseInt(form.remitenteId),
+          destinatarioId:   parseInt(form.destinatarioId),
+          sucursalOrigenId: parseInt(form.sucursalOrigenId),
+          sucursalDestinoId:parseInt(form.sucursalDestinoId),
+          viajeId:          form.viajeId ? parseInt(form.viajeId) : null,
+          descripcionContenido: form.descripcionContenido.trim(),
+          pesoKg:           parseFloat(form.pesoKg),
+          valorDeclarado:   form.valorDeclarado ? parseFloat(form.valorDeclarado) : null,
+          metodoPago:       form.metodoPago,
+          observaciones:    form.observaciones?.trim() || null,
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.mensaje || "Error al registrar"); }
+      const data = await res.json();
+      setItems(prev => [...prev, data]);
+      showToast("✓ Encomienda registrada");
+      setModal(null);
+    } catch (err) { showToast("⚠ " + err.message); }
+    finally { setSaving(false); }
+  };
+
+  // ── Eliminar (cambia a PERDIDO como "baja lógica") ──
+  const eliminar = async (enc) => {
+    try {
+      const res = await fetch(`/api/v1/encomiendas/${enc.id}/estado`, {
+        method: "PATCH", headers,
+        body: JSON.stringify({ nuevoEstado: "PERDIDO", observacion: "Eliminado por administrador" }),
+      });
+      if (!res.ok) throw new Error("No se pudo eliminar");
+      setItems(prev => prev.filter(x => x.id !== enc.id));
+      showToast("✓ Encomienda eliminada");
+    } catch (err) { showToast("⚠ " + err.message); }
+    finally { setConf(null); }
+  };
+
+  const nombreCliente = (c) => c ? `${c.nombres || ""} ${c.apellidos || ""}`.trim() || c.dniRuc : "—";
+
   const fil = items.filter(e =>
     (e.numeroGuia || "").toLowerCase().includes(buscar.toLowerCase()) ||
-    (e.sucursalOrigen?.ciudad || "").toLowerCase().includes(buscar.toLowerCase())
+    (e.sucursalOrigen?.ciudad || "").toLowerCase().includes(buscar.toLowerCase()) ||
+    (e.descripcionContenido || "").toLowerCase().includes(buscar.toLowerCase())
   );
 
   return (
     <>
       <PageHeader title="📦 Gestión de Encomiendas" sub={`${items.length} encomiendas`}
-        action={<button className="adm-btn-outline" onClick={cargar}>↻ Actualizar</button>} />
-      <SearchBar value={buscar} onChange={setBuscar} placeholder="Buscar por guía u origen..." />
+        action={
+          <div style={{ display:"flex", gap:8 }}>
+            <button className="adm-btn-outline" onClick={cargar}>↻ Actualizar</button>
+            <button className="adm-btn-primary" onClick={abrirNuevo}>+ Nueva encomienda</button>
+          </div>
+        }
+      />
+      <SearchBar value={buscar} onChange={setBuscar} placeholder="Buscar por guía, origen o contenido..." />
       <TableWrap load={load} empty={!fil.length && "Sin encomiendas"}>
         <table className="adm-table">
-          <thead><tr><th>N° Guía</th><th>Contenido</th><th>Origen</th><th>Destino</th><th>Peso</th><th>Costo</th><th>Estado</th><th>Acción</th></tr></thead>
+          <thead>
+            <tr>
+              <th>N° Guía</th><th>Contenido</th><th>Origen</th><th>Destino</th>
+              <th>Peso</th><th>Costo</th><th>Estado</th><th>Acciones</th>
+            </tr>
+          </thead>
           <tbody>
             {fil.map(e => (
               <tr key={e.id} className="tr-hover">
                 <td><span className="td-codigo">{e.numeroGuia || "—"}</span></td>
-                <td style={{ fontSize: 12 }}>{e.descripcionContenido || "—"}</td>
+                <td style={{ fontSize: 12, maxWidth: 140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {e.descripcionContenido || "—"}
+                </td>
                 <td>{e.sucursalOrigen?.ciudad || "—"}</td>
                 <td>{e.sucursalDestino?.ciudad || "—"}</td>
                 <td>{e.pesoKg || "—"} kg</td>
                 <td><strong style={{ color: C.verde }}>S/ {e.costo || "—"}</strong></td>
                 <td><Badge text={e.estado} /></td>
                 <td>
-                  <button className="btn-edit" onClick={() => { setUpd(e); setNuevoEst(e.estado); setObs(""); }}>
-                    Cambiar estado
-                  </button>
+                  <div className="td-actions">
+                    <button className="btn-edit" onClick={() => { setModal(e); setNuevoEst(e.estado); setObs(""); }}>
+                      Estado
+                    </button>
+                    <button className="btn-delete" onClick={() => setConf(e)}>Eliminar</button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </TableWrap>
-      {upd && (
-        <ModalForm titulo="Cambiar estado de encomienda" emoji="📦"
-          onClose={() => setUpd(null)} onSubmit={actualizarEstado} saving={saving}>
+
+      {/* ── Modal: cambiar estado ── */}
+      {modal && modal !== "nuevo" && (
+        <ModalForm titulo="Cambiar estado" emoji="📦"
+          onClose={() => setModal(null)} onSubmit={actualizarEstado} saving={saving}>
           <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <Field label="N° Guía"><input value={upd.numeroGuia || ""} disabled /></Field>
+            <Field label="N° Guía"><input value={modal.numeroGuia || ""} disabled /></Field>
+            <Field label="Estado actual">
+              <div style={{ padding:"10px 13px", background:"#f4f9f8", borderRadius:9, fontSize:13, color:C.gris }}>
+                {FLUJO_LABELS[modal.estado] || modal.estado}
+              </div>
+            </Field>
             <Field label="Nuevo estado *">
               <select className="lf-select" value={nuevoEst} onChange={e => setNuevoEst(e.target.value)} required>
                 <option value="">Seleccionar...</option>
-                {["RECIBIDO","EN_ALMACEN","EN_TRANSITO","EN_DESTINO","LISTO_ENTREGA","ENTREGADO","DEVUELTO","PERDIDO"].map(s =>
-                  <option key={s} value={s}>{s.replace(/_/g," ")}</option>
-                )}
+                {FLUJO.map(s => (
+                  <option key={s} value={s}>{FLUJO_LABELS[s]}</option>
+                ))}
               </select>
             </Field>
             <Field label="Observación">
@@ -1265,6 +1632,75 @@ function CrudEncomiendas({ headers, showToast }) {
           </div>
         </ModalForm>
       )}
+
+      {/* ── Modal: nueva encomienda ── */}
+      {modal === "nuevo" && (
+        <ModalForm titulo="Nueva encomienda" emoji="📦"
+          onClose={() => setModal(null)} onSubmit={guardar} saving={saving}>
+          <div className="form-grid">
+            <Field label="Remitente *">
+              <select className="lf-select" value={form.remitenteId} onChange={e => setForm(f=>({...f,remitenteId:e.target.value}))} required>
+                <option value="">Seleccionar cliente...</option>
+                {clientes.map(c => <option key={c.id} value={c.id}>{nombreCliente(c)} — {c.dniRuc}</option>)}
+              </select>
+            </Field>
+            <Field label="Destinatario *">
+              <select className="lf-select" value={form.destinatarioId} onChange={e => setForm(f=>({...f,destinatarioId:e.target.value}))} required>
+                <option value="">Seleccionar cliente...</option>
+                {clientes.map(c => <option key={c.id} value={c.id}>{nombreCliente(c)} — {c.dniRuc}</option>)}
+              </select>
+            </Field>
+            <Field label="Sucursal origen *">
+              <select className="lf-select" value={form.sucursalOrigenId} onChange={e => setForm(f=>({...f,sucursalOrigenId:e.target.value}))} required>
+                <option value="">Seleccionar...</option>
+                {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre} — {s.ciudad}</option>)}
+              </select>
+            </Field>
+            <Field label="Sucursal destino *">
+              <select className="lf-select" value={form.sucursalDestinoId} onChange={e => setForm(f=>({...f,sucursalDestinoId:e.target.value}))} required>
+                <option value="">Seleccionar...</option>
+                {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre} — {s.ciudad}</option>)}
+              </select>
+            </Field>
+            <Field label="Contenido *" style={{ gridColumn:"1/-1" }}>
+              <input value={form.descripcionContenido} onChange={e => setForm(f=>({...f,descripcionContenido:e.target.value}))} placeholder="Descripción del contenido" required />
+            </Field>
+            <Field label="Peso (kg) *">
+              <input type="number" step="0.01" value={form.pesoKg} onChange={e => setForm(f=>({...f,pesoKg:e.target.value}))} placeholder="0.00" required />
+            </Field>
+            <Field label="Valor declarado (S/)">
+              <input type="number" step="0.01" value={form.valorDeclarado} onChange={e => setForm(f=>({...f,valorDeclarado:e.target.value}))} placeholder="0.00" />
+            </Field>
+            <Field label="Método de pago *">
+              <select className="lf-select" value={form.metodoPago} onChange={e => setForm(f=>({...f,metodoPago:e.target.value}))}>
+                <option value="EFECTIVO">Efectivo</option>
+                <option value="YAPE">Yape</option>
+                <option value="PLIN">Plin</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
+              </select>
+            </Field>
+            <Field label="Viaje asignado">
+              <select className="lf-select" value={form.viajeId} onChange={e => setForm(f=>({...f,viajeId:e.target.value}))}>
+                <option value="">Sin asignar</option>
+                {viajes.filter(v=>v.estado==="PROGRAMADO").map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.ruta?.origen?.ciudad} → {v.ruta?.destino?.ciudad} | {v.bus?.placa}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Observaciones" style={{ gridColumn:"1/-1" }}>
+              <input value={form.observaciones} onChange={e => setForm(f=>({...f,observaciones:e.target.value}))} placeholder="Opcional" />
+            </Field>
+          </div>
+        </ModalForm>
+      )}
+
+      {conf && <ConfirmModal
+        mensaje={`¿Eliminar encomienda ${conf.numeroGuia}? Quedará marcada como PERDIDA.`}
+        onConfirmar={() => eliminar(conf)}
+        onCancelar={() => setConf(null)}
+      />}
     </>
   );
 }
@@ -1338,10 +1774,11 @@ export default function AdminDashboard() {
   const [sideCollapsed, setSideCollapsed] = useState(false);
   const toastTimer = useRef(null);
 
-  const headers = {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const headers = useMemo(() => ({
     "Content-Type": "application/json",
     Authorization: `Bearer ${session.token}`,
-  };
+  }), [session.token]);
 
   const showToast = (msg) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -1352,14 +1789,14 @@ export default function AdminDashboard() {
   const iniciales = (session.username || "AD").slice(0, 2).toUpperCase();
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.fondo, fontFamily: "'Source Sans 3', Arial, sans-serif" }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: C.fondo, fontFamily: "'Source Sans 3', Arial, sans-serif" }}>
 
       {/* ── SIDEBAR ── */}
       <aside style={{
         width: sideCollapsed ? 66 : 228,
         background: C.oscuro,
         display: "flex", flexDirection: "column",
-        position: "sticky", top: 0, height: "100vh",
+        height: "100vh",
         transition: "width 0.24s cubic-bezier(.4,0,.2,1)",
         flexShrink: 0, overflow: "hidden",
       }}>
@@ -1427,7 +1864,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ── CONTENIDO ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Topbar */}
         <header style={{
           background: C.blanco,
@@ -1472,12 +1909,12 @@ export default function AdminDashboard() {
         {/* Área principal */}
         <main style={{ flex: 1, padding: "22px 26px", overflowY: "auto" }}>
           {seccion === "dashboard"   && <DashboardHome    headers={headers} onNav={setSeccion} />}
-          {seccion === "sucursales"  && <CrudSucursales   headers={headers} showToast={showToast} />}
-          {seccion === "rutas"       && <CrudRutas        headers={headers} showToast={showToast} />}
-          {seccion === "buses"       && <CrudBuses        headers={headers} showToast={showToast} />}
-          {seccion === "viajes"      && <CrudViajes       headers={headers} showToast={showToast} />}
-          {seccion === "clientes"    && <CrudClientes     headers={headers} showToast={showToast} />}
-          {seccion === "encomiendas" && <CrudEncomiendas  headers={headers} showToast={showToast} />}
+          {seccion === "sucursales"  && <ErrorBoundary key="sucursales"><CrudSucursales   headers={headers} showToast={showToast} /></ErrorBoundary>}
+          {seccion === "rutas"       && <ErrorBoundary key="rutas"><CrudRutas        headers={headers} showToast={showToast} /></ErrorBoundary>}
+          {seccion === "buses"       && <ErrorBoundary key="buses"><CrudBuses        headers={headers} showToast={showToast} /></ErrorBoundary>}
+          {seccion === "viajes"      && <ErrorBoundary key="viajes"><CrudViajes       headers={headers} showToast={showToast} /></ErrorBoundary>}
+          {seccion === "clientes"    && <ErrorBoundary key="clientes"><CrudClientes     headers={headers} showToast={showToast} /></ErrorBoundary>}
+          {seccion === "encomiendas" && <ErrorBoundary key="encomiendas"><CrudEncomiendas  headers={headers} showToast={showToast} /></ErrorBoundary>}
         </main>
       </div>
 

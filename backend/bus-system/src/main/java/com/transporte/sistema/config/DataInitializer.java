@@ -117,20 +117,23 @@ public class DataInitializer implements CommandLineRunner {
      * en el portal y en el dashboard admin.
      */
     @Transactional
-    protected void crearViajesDePrueba() {
+    public void crearViajesDePrueba() {
         long totalViajes = viajeRepository.count();
         if (totalViajes > 0) {
             log.info("Ya existen {} viaje(s) en BD — no se generan viajes de prueba", totalViajes);
             return;
         }
 
-        List<Bus>  buses = busRepository.findByActivoTrue();
+        List<Bus>  buses = busRepository.findAll().stream()
+                .filter(b -> !Boolean.FALSE.equals(b.getActivo()))
+                .toList();
         List<Ruta> rutas = rutaRepository.findAll().stream()
                 .filter(r -> !Boolean.FALSE.equals(r.getActivo()))
                 .toList();
 
         if (buses.isEmpty() || rutas.isEmpty()) {
-            log.warn("Sin buses ({}) o rutas ({}) — se omite la creación de viajes de prueba",
+            log.warn("Sin buses ({}) o rutas ({}) — no se pueden generar viajes de prueba. " +
+                     "Crea al menos 1 bus y 1 ruta desde el panel admin para que se generen automáticamente.",
                     buses.size(), rutas.size());
             return;
         }

@@ -1,6 +1,7 @@
 package com.transporte.sistema.service;
 
 import com.transporte.sistema.dto.request.ActualizarEstadoEncomiendaRequest;
+import com.transporte.sistema.dto.request.EncomiendaClienteRequest;
 import com.transporte.sistema.dto.request.EncomiendaRequest;
 import com.transporte.sistema.dto.response.EncomiendaResponse;
 import com.transporte.sistema.dto.response.MovimientoEncomiendaResponse;
@@ -20,4 +21,7 @@ public interface EncomiendaService {
     // Portal cliente
     List<EncomiendaResponse> misEncomiendas(String username);
     List<MovimientoEncomiendaResponse> obtenerMovimientos(Long encomiendaId, String username);
+
+    // Solicitud desde portal cliente autenticado
+    EncomiendaResponse solicitarEncomienda(EncomiendaClienteRequest request, String username);
 }
