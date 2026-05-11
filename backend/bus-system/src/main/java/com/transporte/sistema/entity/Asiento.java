@@ -57,6 +57,9 @@ public class Asiento extends BaseEntity {
     @Builder.Default
     private EstadoAsiento estado = EstadoAsiento.DISPONIBLE;
 
+    @Column(name = "precio", precision = 10, scale = 2)
+    private java.math.BigDecimal precio;
+
     /** Referencia inversa al boleto (si está vendido/reservado) */
     @OneToOne(mappedBy = "asiento", fetch = FetchType.LAZY)
     private Boleto boleto;

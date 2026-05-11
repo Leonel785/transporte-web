@@ -69,11 +69,12 @@ public class BoletoController {
     }
 
     @PatchMapping("/{id}/cancelar")
-    @PreAuthorize("hasAnyRole('ADMIN','CAJERO')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAJERO','CLIENTE')")
     public ResponseEntity<BoletoResponse> cancelar(
             @PathVariable Long id,
-            @RequestParam(required = false) String motivo) {
-        return ResponseEntity.ok(boletoService.cancelar(id, motivo));
+            @RequestParam(required = false) String motivo,
+            Principal principal) {
+        return ResponseEntity.ok(boletoService.cancelarPorUsuario(id, motivo, principal.getName()));
     }
 
     // ── Portal cliente ────────────────────────────────────────────────────────

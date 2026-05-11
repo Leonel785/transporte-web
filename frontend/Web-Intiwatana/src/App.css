@@ -999,4 +999,39 @@ footer strong { color: var(--amarillo); }
   font-size: 11px;
   color: var(--gris-verde);
   margin: 0;
-}
+}/* ── Login & Auth ─────────────────────────────── */
+.login-wrap{display:flex;min-height:100vh;background:#f0f4f3;}
+.login-left{width:340px;min-width:280px;background:linear-gradient(155deg,#0d3330 0%,#127369 100%);display:flex;flex-direction:column;padding:0;position:relative;overflow:hidden;flex-shrink:0;}
+.login-left-pattern{position:absolute;inset:0;background-image:radial-gradient(circle at 20% 30%,rgba(245,197,24,0.08) 0%,transparent 55%),radial-gradient(circle at 80% 80%,rgba(18,115,105,0.2) 0%,transparent 60%);pointer-events:none;}
+.login-left-body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:2.5rem 2rem;position:relative;z-index:1;}
+.login-left-title{font-family:'Playfair Display',serif;font-size:2.4rem;font-weight:900;color:#fff;letter-spacing:-0.02em;margin:0.6rem 0 0.5rem;}
+.login-left-desc{color:rgba(255,255,255,0.72);font-size:14px;line-height:1.6;margin-bottom:2rem;}
+.login-features{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;}
+.login-features li{color:rgba(255,255,255,0.8);font-size:13px;display:flex;align-items:center;gap:8px;}
+.lf-dot{width:7px;height:7px;border-radius:50%;background:#F5C518;flex-shrink:0;}
+.login-left-foot{padding:1.2rem 2rem;font-size:11px;color:rgba(255,255,255,0.35);position:relative;z-index:1;}
+.login-right{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;background:radial-gradient(ellipse at 60% 50%,#f0f4f3 0%,#e4eeeb 100%);}
+.login-box{background:#fff;border-radius:20px;padding:2.5rem 2rem 2rem;width:100%;max-width:400px;box-shadow:0 12px 48px rgba(16,64,59,0.12),0 2px 8px rgba(0,0,0,0.04);}
+.auth-title{font-family:'Playfair Display',serif;font-size:1.7rem;font-weight:800;color:#0d3330;margin:0 0 4px;}
+.auth-sub{color:#7a9e9b;font-size:13px;margin:0;}
+.auth-error{background:rgba(224,82,82,0.09);color:#c0392b;border:1px solid rgba(224,82,82,0.25);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.auth-form,.auth-form-scroll{display:flex;flex-direction:column;gap:0;}
+.auth-form-scroll{max-height:60vh;overflow-y:auto;padding-right:2px;}
+.auth-field{margin-bottom:14px;}
+.auth-field label{display:block;font-size:10.5px;font-weight:700;color:#4C5958;margin-bottom:5px;letter-spacing:0.08em;text-transform:uppercase;}
+.auth-field input{width:100%;border:1.5px solid #d4dbd9;border-radius:9px;padding:10px 13px;font-size:13px;font-family:inherit;color:#0d3330;background:#fff;outline:none;box-sizing:border-box;transition:border 0.18s;}
+.auth-field input:focus{border-color:#127369;box-shadow:0 0 0 3px rgba(18,115,105,0.1);}
+.auth-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+.auth-btn{width:100%;background:linear-gradient(135deg,#127369,#0d3330);color:#fff;border:none;border-radius:11px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.22s;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:0.04em;}
+.auth-btn:hover:not(:disabled){background:linear-gradient(135deg,#0f5e56,#0a2826);transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,64,59,0.25);}
+.auth-btn:disabled{opacity:0.65;cursor:not-allowed;}
+.auth-footer-note{font-size:12px;color:#7a9e9b;text-align:center;margin-top:14px;}
+.auth-panel-inner{display:flex;flex-direction:column;gap:0;}
+.auth-panel-header{margin-bottom:16px;}
+.auth-back-btn{background:transparent;border:none;color:#7a9e9b;cursor:pointer;font-size:13px;padding:0;font-family:inherit;margin-bottom:10px;}
+.auth-back-btn:hover{color:#0d3330;}
+@media(max-width:640px){.login-left{display:none;}.login-right{padding:1rem;}.login-box{padding:1.8rem 1.2rem;}}
+
+/* Spinner global — evita crash de React por inline animation en Loader2 */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin-icon { display: inline-flex; animation: spin 1s linear infinite; }

@@ -31,4 +31,6 @@ public interface EncomiendaRepository extends JpaRepository<Encomienda, Long> {
 
     @EntityGraph(attributePaths = {"sucursalOrigen", "sucursalDestino", "remitente", "destinatario"})
     Page<Encomienda> findBySucursalOrigenIdOrderByCreatedAtDesc(Long sucursalId, Pageable pageable);
+
+    Optional<Encomienda> findByPagoId(Long pagoId);
 }

@@ -9,10 +9,6 @@ import lombok.experimental.SuperBuilder;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Registro de pago. Puede estar asociado a un boleto o encomienda.
- * Permite múltiples métodos de pago por transacción (futuro).
- */
 @Entity
 @Table(name = "pagos")
 @Getter
@@ -41,14 +37,16 @@ public class Pago extends BaseEntity {
     @Builder.Default
     private EstadoPago estado = EstadoPago.PENDIENTE;
 
-    /** Código de operación Yape/Plin, número de voucher de tarjeta, etc. */
     @Column(name = "referencia", length = 200)
     private String referencia;
 
-    /** Usuario cajero que registró el pago */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cajero_id")
     private Usuario cajero;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    private Cliente cliente;
 
     @Column(name = "observacion", length = 300)
     private String observacion;

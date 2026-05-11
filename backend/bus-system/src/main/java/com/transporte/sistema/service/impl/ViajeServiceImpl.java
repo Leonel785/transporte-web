@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,8 +36,6 @@ public class ViajeServiceImpl implements ViajeService {
     private final UsuarioRepository usuarioRepository;
     private final AsientoRepository asientoRepository;
     private final BoletoRepository  boletoRepository;
-
-    // ── Crear viaje ──────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -81,8 +81,6 @@ public class ViajeServiceImpl implements ViajeService {
         return toResponse(viaje);
     }
 
-    // ── Actualizar viaje ─────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public ViajeResponse actualizar(Long id, ViajeRequest request) {
@@ -114,7 +112,6 @@ public class ViajeServiceImpl implements ViajeService {
         viaje.setPrecioNino(request.getPrecioNino());
         if (request.getObservaciones() != null) viaje.setObservaciones(request.getObservaciones());
 
-        // ── FIX: aplicar cambio de estado si viene en el request ──────────
         if (request.getEstado() != null && request.getEstado() != viaje.getEstado()) {
             validarTransicionEstado(viaje.getEstado(), request.getEstado());
             viaje.setEstado(request.getEstado());
@@ -126,8 +123,6 @@ public class ViajeServiceImpl implements ViajeService {
         log.info("Viaje actualizado: id={} | estado={}", id, viaje.getEstado());
         return toResponse(viajeRepository.save(viaje));
     }
-
-    // ── Consultas ────────────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -148,8 +143,8 @@ public class ViajeServiceImpl implements ViajeService {
     @Override
     @Transactional(readOnly = true)
     public Page<ViajeResponse> buscarDisponibles(
-            Long origenId, Long destinoId, LocalDateTime desde, Pageable pageable) {
-        return viajeRepository.buscarDisponibles(origenId, destinoId, desde, pageable)
+            Long origenId, Long destinoId, LocalDateTime desde, LocalDateTime hasta, Pageable pageable) {
+        return viajeRepository.buscarDisponibles(origenId, destinoId, desde, hasta, pageable)
                 .map(this::toResponseLigero);
     }
 
@@ -158,13 +153,27 @@ public class ViajeServiceImpl implements ViajeService {
     public List<AsientoResponse> obtenerAsientos(Long viajeId) {
         viajeRepository.findById(viajeId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Viaje", viajeId));
-        return asientoRepository.findByViajeId(viajeId)
-                .stream()
-                .map(this::toAsientoResponse)
+        
+        List<Asiento> asientos = asientoRepository.findByViajeId(viajeId);
+        
+        // Obtener nombres de pasajeros para asientos ocupados
+        Map<Long, String> ocupantes = boletoRepository.findByViajeId(viajeId, Pageable.unpaged())
+                .getContent().stream()
+                .filter(b -> b.getEstado() != com.transporte.sistema.enums.EstadoBoleto.CANCELADO)
+                .collect(Collectors.toMap(
+                        b -> b.getAsiento().getId(),
+                        b -> b.getCliente().getNombreCompleto(),
+                        (v1, v2) -> v1
+                ));
+
+        return asientos.stream()
+                .map(a -> {
+                    AsientoResponse resp = toAsientoResponse(a);
+                    resp.setPasajero(ocupantes.get(a.getId()));
+                    return resp;
+                })
                 .toList();
     }
-
-    // ── Cambio de estado ─────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -184,12 +193,21 @@ public class ViajeServiceImpl implements ViajeService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ViajeResponse> listarPorChoferIdList(Long choferId) {
+        return viajeRepository.findAll().stream()
+                .filter(v -> v.getChofer() != null && v.getChofer().getId().equals(choferId))
+                .filter(v -> !Boolean.FALSE.equals(v.getActivo()))
+                .sorted(java.util.Comparator.comparing(com.transporte.sistema.entity.Viaje::getFechaHoraSalida).reversed())
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<ViajeResponse> listarPorChofer(Long choferId, Pageable pageable) {
         return viajeRepository.findByChoferIdOrderByFechaHoraSalidaDesc(choferId, pageable)
                 .map(this::toResponse);
     }
-
-    // ── Eliminar ─────────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -212,8 +230,6 @@ public class ViajeServiceImpl implements ViajeService {
         log.info("Viaje {} eliminado (soft delete)", id);
     }
 
-    // ── Validaciones privadas ────────────────────────────────────────────────
-
     private void validarDisponibilidadBus(Long busId, LocalDateTime inicio,
                                            LocalDateTime fin, Long excludeViajeId) {
         if (inicio == null || fin == null) return;
@@ -228,12 +244,6 @@ public class ViajeServiceImpl implements ViajeService {
         }
     }
 
-    /**
-     * Transiciones permitidas:
-     *   PROGRAMADO → EN_CURSO | CANCELADO
-     *   EN_CURSO   → FINALIZADO | CANCELADO
-     *   FINALIZADO | CANCELADO → ninguno
-     */
     private void validarTransicionEstado(EstadoViaje actual, EstadoViaje nuevo) {
         boolean valida = switch (actual) {
             case PROGRAMADO -> nuevo == EstadoViaje.EN_CURSO   || nuevo == EstadoViaje.CANCELADO;
@@ -245,8 +255,6 @@ public class ViajeServiceImpl implements ViajeService {
                     "Transición de estado inválida: " + actual + " → " + nuevo);
         }
     }
-
-    // ── Generación de asientos ───────────────────────────────────────────────
 
     private void generarAsientos(Viaje viaje, Bus bus) {
         int total    = bus.getCapacidadAsientos();
@@ -282,25 +290,33 @@ public class ViajeServiceImpl implements ViajeService {
         log.info("Generados {} asientos para viaje {}", lista.size(), viaje.getId());
     }
 
-    // ── Mappers ──────────────────────────────────────────────────────────────
-
     private ViajeResponse toResponse(Viaje v) {
         if (v == null) return null;
-
         long disponibles = 0;
         try {
             disponibles = asientoRepository.countDisponiblesByViajeId(v.getId());
         } catch (Exception e) {
             log.warn("No se pudo contar asientos del viaje {}: {}", v.getId(), e.getMessage());
         }
-
         Bus bus   = v.getBus();
         Ruta ruta = v.getRuta();
-
+        ViajeResponse.ChoferInfo choferInfo = null;
+        if (v.getChofer() != null) {
+            Usuario ch = v.getChofer();
+            choferInfo = ViajeResponse.ChoferInfo.builder()
+                    .id(ch.getId())
+                    .username(ch.getUsername())
+                    .nombres(ch.getNombres())
+                    .apellidos(ch.getApellidos())
+                    .nombreCompleto(ch.getNombres() + " " + ch.getApellidos())
+                    .telefono(ch.getTelefono())
+                    .build();
+        }
         return ViajeResponse.builder()
                 .id(v.getId())
                 .ruta(toRutaResponse(ruta))
                 .bus(toBusResponse(bus))
+                .chofer(choferInfo)
                 .choferId(v.getChofer() != null ? v.getChofer().getId() : null)
                 .choferNombre(v.getChofer() != null
                         ? v.getChofer().getNombres() + " " + v.getChofer().getApellidos()
@@ -319,17 +335,24 @@ public class ViajeServiceImpl implements ViajeService {
     private ViajeResponse toResponseLigero(Viaje v) {
         if (v == null) return null;
         Bus bus = v.getBus();
-
         long disponibles = v.getAsientos() != null
                 ? v.getAsientos().stream()
                     .filter(a -> EstadoAsiento.DISPONIBLE.equals(a.getEstado()))
                     .count()
                 : 0;
-
+        ViajeResponse.ChoferInfo choferInfoL = null;
+        if (v.getChofer() != null) {
+            Usuario chl = v.getChofer();
+            choferInfoL = ViajeResponse.ChoferInfo.builder()
+                    .id(chl.getId()).username(chl.getUsername())
+                    .nombres(chl.getNombres()).apellidos(chl.getApellidos())
+                    .nombreCompleto(chl.getNombres() + " " + chl.getApellidos()).build();
+        }
         return ViajeResponse.builder()
                 .id(v.getId())
                 .ruta(toRutaResponse(v.getRuta()))
                 .bus(toBusResponse(bus))
+                .chofer(choferInfoL)
                 .choferId(v.getChofer() != null ? v.getChofer().getId() : null)
                 .choferNombre(v.getChofer() != null
                         ? v.getChofer().getNombres() + " " + v.getChofer().getApellidos()
@@ -393,6 +416,7 @@ public class ViajeServiceImpl implements ViajeService {
                 .piso(a.getPiso())
                 .tipo(a.getTipo())
                 .estado(a.getEstado())
+                .precio(a.getPrecio())
                 .build();
     }
 }

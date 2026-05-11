@@ -26,11 +26,13 @@ List<Viaje> findAll();
        "AND v.ruta.destino.id = :destinoId " +
        "AND v.estado = 'PROGRAMADO' " +
        "AND (CAST(:desde AS java.time.LocalDateTime) IS NULL OR v.fechaHoraSalida >= :desde) " +
+       "AND (CAST(:hasta AS java.time.LocalDateTime) IS NULL OR v.fechaHoraSalida <= :hasta) " +
        "AND (v.activo IS NULL OR v.activo = true)")
 Page<Viaje> buscarDisponibles(
         @Param("origenId") Long origenId,
         @Param("destinoId") Long destinoId,
         @Param("desde") LocalDateTime desde,
+        @Param("hasta") LocalDateTime hasta,
         Pageable pageable);
         
     @EntityGraph(attributePaths = {"ruta", "ruta.origen", "ruta.destino", "bus", "chofer"})

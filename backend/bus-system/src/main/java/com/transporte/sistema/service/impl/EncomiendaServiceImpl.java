@@ -63,6 +63,7 @@ public class EncomiendaServiceImpl implements EncomiendaService {
                 .monto(costo)
                 .fechaPago(LocalDateTime.now())
                 .metodo(request.getMetodoPago())
+                .cliente(remitente)
                 .activo(true)
                 .build();
         pagoRepository.save(pago);
@@ -134,6 +135,7 @@ public class EncomiendaServiceImpl implements EncomiendaService {
                 .monto(costo)
                 .fechaPago(LocalDateTime.now())
                 .metodo(request.getMetodoPago())
+                .cliente(remitente)
                 .activo(true)
                 .build();
         pagoRepository.save(pago);

@@ -62,7 +62,14 @@ public class SucursalServiceImpl implements SucursalService {
     @Override
     @Transactional(readOnly = true)
     public List<SucursalResponse> listarTerminales() {
-        return sucursalRepository.findByEsTerminalTrueAndActivoTrue().stream().map(this::toResponse).toList();
+        List<SucursalResponse> terminales = sucursalRepository.findByEsTerminalTrueAndActivoTrue()
+                .stream().map(this::toResponse).toList();
+        // Si no hay sucursales marcadas como terminal, devolver todas las activas
+        // (evita lista vacía en el selector público de pasajes)
+        if (terminales.isEmpty()) {
+            return sucursalRepository.findByActivoTrue().stream().map(this::toResponse).toList();
+        }
+        return terminales;
     }
 
     @Override

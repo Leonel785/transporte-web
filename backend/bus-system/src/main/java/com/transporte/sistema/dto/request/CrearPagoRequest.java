@@ -1,5 +1,6 @@
 package com.transporte.sistema.dto.request;
 
+import com.transporte.sistema.enums.EstadoPago;
 import com.transporte.sistema.enums.MetodoPago;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -20,4 +21,6 @@ public class CrearPagoRequest {
 
     @Size(max = 300)
     private String observacion;
+
+    private EstadoPago estado;
 }

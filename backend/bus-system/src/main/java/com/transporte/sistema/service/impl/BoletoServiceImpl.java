@@ -71,7 +71,7 @@ public class BoletoServiceImpl implements BoletoService {
         Cliente cliente = clienteRepository.findById(request.getClienteId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cliente", request.getClienteId()));
 
-        Pago pago = crearPago(viaje, request);
+        Pago pago = crearPago(viaje, request, cliente);
         Usuario cajero = obtenerUsuarioActual();
 
         BoletoResponse resp = crearYGuardarBoleto(viaje, asiento, cliente, pago, cajero, request.getObservaciones());
@@ -95,7 +95,7 @@ public class BoletoServiceImpl implements BoletoService {
         // Lock pesimista en el asiento
         Asiento asiento = obtenerAsientoConLock(request.getAsientoId(), viaje.getId());
 
-        Pago pago = crearPago(viaje, request);
+        Pago pago = crearPago(viaje, request, cliente);
 
         BoletoResponse resp = crearYGuardarBoleto(viaje, asiento, cliente, pago, null, request.getObservaciones());
         log.info("Pasaje comprado: {} | cliente={} | viaje={} | asiento={}",
@@ -180,6 +180,13 @@ public class BoletoServiceImpl implements BoletoService {
         boleto.setEstado(EstadoBoleto.CANCELADO);
         boleto.setObservaciones(motivo);
 
+        // Si falta más de 24 horas, marcar pago como reembolsado (política de devolución)
+        if (boleto.getPago() != null && boleto.getViaje().getFechaHoraSalida().minusHours(24).isAfter(LocalDateTime.now())) {
+            boleto.getPago().setEstado(EstadoPago.REEMBOLSADO);
+            pagoRepository.save(boleto.getPago());
+            log.info("Pago reembolsado automáticamente por cancelación anticipada (>24h)");
+        }
+
         // Liberar el asiento
         Asiento asiento = boleto.getAsiento();
         asiento.setEstado(EstadoAsiento.DISPONIBLE);
@@ -187,6 +194,36 @@ public class BoletoServiceImpl implements BoletoService {
 
         log.info("Boleto cancelado: {} | motivo: {}", boleto.getNumeroBoleto(), motivo);
         return toResponse(boletoRepository.save(boleto));
+    }
+    @Override
+    @Transactional
+    public BoletoResponse cancelarPorUsuario(Long id, String motivo, String username) {
+        Boleto boleto = boletoRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Boleto", id));
+
+        Usuario actual = usuarioRepository.findByUsername(username).orElse(null);
+        boolean esAdmin = actual != null && actual.getRol() != null && 
+                (actual.getRol().getNombre().equals("ROLE_ADMIN") || actual.getRol().getNombre().equals("ROLE_CAJERO"));
+
+        if (!esAdmin) {
+            // Validar propiedad
+            if (!boleto.getCliente().getUsuario().getUsername().equals(username)) {
+                throw new NegocioException("No tienes permiso para cancelar este boleto");
+            }
+
+            // Validar tiempo absoluto (mínimo 30 min)
+            if (boleto.getViaje().getFechaHoraSalida().minusMinutes(30).isBefore(LocalDateTime.now())) {
+                throw new NegocioException("El viaje está por comenzar o ya inició. No se puede cancelar.");
+            }
+
+            // Validar si requiere justificación obligatoria (si falta menos de 24h)
+            boolean faltaPoco = boleto.getViaje().getFechaHoraSalida().minusHours(24).isBefore(LocalDateTime.now());
+            if (faltaPoco && (motivo == null || motivo.trim().isEmpty())) {
+                throw new NegocioException("Faltan menos de 24 horas para el viaje. Debe proporcionar una justificación obligatoria.");
+            }
+        }
+
+        return cancelar(id, motivo);
     }
 
     // ── Helpers privados ─────────────────────────────────────────────────────
@@ -226,13 +263,14 @@ public class BoletoServiceImpl implements BoletoService {
     /**
      * Crea y persiste el objeto Pago.
      */
-    private Pago crearPago(Viaje viaje, BoletoRequest request) {
+    private Pago crearPago(Viaje viaje, BoletoRequest request, Cliente cliente) {
         Pago pago = Pago.builder()
                 .monto(viaje.getPrecioAdulto())
                 .fechaPago(LocalDateTime.now())
                 .metodo(request.getMetodoPago())
                 .estado(EstadoPago.COMPLETADO)
                 .referencia(request.getReferenciaPago())
+                .cliente(cliente)
                 .activo(true)
                 .build();
         return pagoRepository.save(pago);

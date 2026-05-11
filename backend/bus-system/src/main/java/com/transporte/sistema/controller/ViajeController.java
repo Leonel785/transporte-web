@@ -53,10 +53,12 @@ public ResponseEntity<Page<ViajeResponse>> buscarDisponibles(
         @RequestParam Long destinoId,
         @RequestParam(required = false)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "10") int size) {
     PageRequest pageable = PageRequest.of(page, size, Sort.by("fechaHoraSalida").ascending());
-    return ResponseEntity.ok(viajeService.buscarDisponibles(origenId, destinoId, desde, pageable));
+    return ResponseEntity.ok(viajeService.buscarDisponibles(origenId, destinoId, desde, hasta, pageable));
 }
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")

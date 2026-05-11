@@ -11,4 +11,6 @@ public class AsientoResponse {
     private Integer piso;
     private TipoAsiento tipo;
     private EstadoAsiento estado;
+    private java.math.BigDecimal precio;
+    private String pasajero;
 }

@@ -12,6 +12,7 @@ public interface BoletoService {
     BoletoResponse obtenerPorNumero(String numeroBoleto);
     BoletoResponse escanearQr(String codigoQr);
     BoletoResponse cancelar(Long id, String motivo);
+    BoletoResponse cancelarPorUsuario(Long id, String motivo, String username);
     Page<BoletoResponse> listarPorCliente(Long clienteId, Pageable pageable);
     Page<BoletoResponse> listarPorViaje(Long viajeId, Pageable pageable);
 

@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface BoletoRepository extends JpaRepository<Boleto, Long> {
 
     Optional<Boleto> findByNumeroBoleto(String numeroBoleto);
+    Optional<Boleto> findByPagoId(Long pagoId);
 
     Page<Boleto> findByClienteIdOrderByCreatedAtDesc(Long clienteId, Pageable pageable);
 

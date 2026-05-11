@@ -1,20 +1,22 @@
 // App.jsx
 import { useState } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { Landmark, Trees, MountainSnow, Waves, Building2, Coffee, Sun, Mountain, MapPin, Clock, ArrowRight, Search, Calendar, Bus, Briefcase, ChevronRight, Shield, Star, Navigation, FileText, User, Navigation2, Package, CheckCircle2, AlertTriangle, Undo2, Factory, Mailbox, Phone, Ticket } from 'lucide-react';
 import "./App.css";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login, { RegisterForm, LeftPanel } from "./components/Login";
 import AdminDashboard from "./components/AdminDashboard";
 import ClienteDashboard from "./components/ClienteDashboard";
+import ChoferDashboard from "./components/ChoferDashboard";
 import PasajesPage from "./components/PasajesPage";
 import LogoSVG from "./components/LogoSVG";
 
 // ── DATA REAL ─────────────────────────────────────────
-const DESTINOS = [
+export const DESTINOS = [
   {
     nombre: "Vilcas Huaman",
     imagen: "/assets/img/rutas/vilcas.jpg",
-    emoji: "🏛️", color: "#8AA6A3", region: "Ayacucho",
+    EmojiIcon: () => <Landmark size={24} />, color: "#8AA6A3", region: "Ayacucho",
     duracion: "Local", distancia: "–",
     horarios: [
       { hora: "06:00", tipo: "Diurno",   precio: "S/ 10–15" },
@@ -29,7 +31,7 @@ const DESTINOS = [
   {
     nombre: "Accomarca",
     imagen: "/assets/img/rutas/accomarca.jpeg",
-    emoji: "🌿", color: "#127369", region: "Ayacucho",
+    EmojiIcon: () => <Trees size={24} />, color: "#127369", region: "Ayacucho",
     duracion: "~8h 30min", distancia: "~340 km",
     horarios: [
       { hora: "06:00", tipo: "Diurno",   precio: "S/ 35–45" },
@@ -45,7 +47,7 @@ const DESTINOS = [
   {
     nombre: "Huarcas",
     imagen: "/assets/img/rutas/huarcas.jpeg",
-    emoji: "🏔️", color: "#4C5958", region: "Ayacucho",
+    EmojiIcon: () => <MountainSnow size={24} />, color: "#4C5958", region: "Ayacucho",
     duracion: "~14h", distancia: "~570 km",
     horarios: [
       { hora: "07:00", tipo: "Diurno",   precio: "S/ 60–80" },
@@ -60,7 +62,7 @@ const DESTINOS = [
   {
     nombre: "Pongococha",
     imagen: "/assets/img/rutas/pongococha.jpeg",
-    emoji: "🌊", color: "#10403B", region: "Ayacucho",
+    EmojiIcon: () => <Waves size={24} />, color: "#10403B", region: "Ayacucho",
     duracion: "~16h", distancia: "~650 km",
     horarios: [
       { hora: "18:00", tipo: "Nocturno", precio: "S/ 75–95" },
@@ -74,7 +76,7 @@ const DESTINOS = [
   {
     nombre: "Vischongo",
     imagen: "/assets/img/rutas/vischongo.jpeg",
-    emoji: "🏙️", color: "#4C5958", region: "Ayacucho",
+    EmojiIcon: () => <Building2 size={24} />, color: "#4C5958", region: "Ayacucho",
     duracion: "~2h", distancia: "~80 km",
     horarios: [
       { hora: "08:00", tipo: "Diurno",   precio: "S/ 10–15" },
@@ -89,7 +91,7 @@ const DESTINOS = [
   {
     nombre: "Andabamba",
     imagen: "/assets/img/rutas/andabamba.jpeg",
-    emoji: "🏺", color: "#127369", region: "Ayacucho",
+    EmojiIcon: () => <Coffee size={24} />, color: "#127369", region: "Ayacucho",
     duracion: "~12h", distancia: "~500 km",
     horarios: [
       { hora: "07:00", tipo: "Diurno",   precio: "S/ 55–75" },
@@ -103,7 +105,7 @@ const DESTINOS = [
   {
     nombre: "Manallasacc",
     imagen: "/assets/img/rutas/manallasacc.jpeg",
-    emoji: "🏜️", color: "#8AA6A3", region: "Ayacucho",
+    EmojiIcon: () => <Sun size={24} />, color: "#8AA6A3", region: "Ayacucho",
     duracion: "~8h", distancia: "~390 km",
     horarios: [
       { hora: "06:00", tipo: "Diurno",   precio: "S/ 40–55" },
@@ -117,7 +119,7 @@ const DESTINOS = [
   {
     nombre: "Chiribamba",
     imagen: "/assets/img/rutas/chiribamba.jpeg",
-    emoji: "⛰️", color: "#10403B", region: "Ayacucho",
+    EmojiIcon: () => <Mountain size={24} />, color: "#10403B", region: "Ayacucho",
     duracion: "~5h", distancia: "~195 km",
     horarios: [
       { hora: "06:00", tipo: "Diurno",   precio: "S/ 25–35" },
@@ -139,7 +141,7 @@ function ModalHorarios({ destino, onClose, onReservar }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-badge">{destino.emoji}</div>
+          <div className="modal-badge">{destino.EmojiIcon && <destino.EmojiIcon />}</div>
           <div>
             <div className="modal-title">{destino.nombre}</div>
             <div className="modal-subtitle">{destino.region} · Valle andino</div>
@@ -148,8 +150,8 @@ function ModalHorarios({ destino, onClose, onReservar }) {
         </div>
         <div className="modal-body">
           <div className="modal-info-row">
-            <div className="modal-chip">⏱ Duración: <strong>{destino.duracion}</strong></div>
-            <div className="modal-chip">📏 Distancia: <strong>{destino.distancia}</strong></div>
+            <div className="modal-chip"><Clock size={16} /> Duración: <strong>{destino.duracion}</strong></div>
+            <div className="modal-chip"><Navigation size={16} /> Distancia: <strong>{destino.distancia}</strong></div>
           </div>
           <hr className="modal-divider" />
           <div className="modal-section-label">Horarios de salida — Ayacucho → {destino.nombre}</div>
@@ -167,7 +169,7 @@ function ModalHorarios({ destino, onClose, onReservar }) {
           <div className="terminales-list">
             {destino.terminales.map((t, i) => (
               <div className="terminal-row" key={i}>
-                <div className="terminal-icon">{t.tipo === "ORIGEN" ? "🚌" : "📍"}</div>
+                <div className="terminal-icon">{t.tipo === "ORIGEN" ? <Bus size={18} /> : <MapPin size={18} />}</div>
                 <div className="terminal-info">
                   <div className="terminal-nombre">{t.nombre}</div>
                   <div className="terminal-dir">{t.dir}</div>
@@ -181,7 +183,7 @@ function ModalHorarios({ destino, onClose, onReservar }) {
             className="btn-reservar"
             onClick={() => { onClose(); onReservar(destino); }}
           >
-            🎫 Reservar pasaje en línea
+            <Ticket size={20} /> Reservar pasaje en línea
           </button>
           <p className="modal-nota">* Horarios y precios referenciales. Confirmar disponibilidad en terminal.</p>
         </div>
@@ -198,14 +200,14 @@ function ModalTracking({ onClose }) {
   const [error,     setError]     = useState("");
 
   const ESTADO_LABELS = {
-    RECIBIDO:      { label: "Recibido",      icon: "📦", color: "#b8860b",  bg: "rgba(245,197,24,0.15)"  },
-    EN_ALMACEN:    { label: "En almacén",    icon: "🏭", color: "#127369",  bg: "rgba(18,115,105,0.15)"  },
-    EN_TRANSITO:   { label: "En tránsito",   icon: "🚌", color: "#127369",  bg: "rgba(18,115,105,0.15)"  },
-    EN_DESTINO:    { label: "En destino",    icon: "📍", color: "#1d4ed8",  bg: "rgba(59,130,246,0.15)"  },
-    LISTO_ENTREGA: { label: "Listo entrega", icon: "📬", color: "#127369",  bg: "rgba(18,115,105,0.15)"  },
-    ENTREGADO:     { label: "Entregado",     icon: "✅", color: "#15803d",  bg: "rgba(34,197,94,0.15)"   },
-    DEVUELTO:      { label: "Devuelto",      icon: "↩️", color: "#7e22ce",  bg: "rgba(168,85,247,0.15)"  },
-    PERDIDO:       { label: "Perdido",       icon: "⚠️", color: "#dc2626",  bg: "rgba(239,68,68,0.15)"   },
+    RECIBIDO:      { label: "Recibido",      icon: <Package size={20} />, color: "#b8860b",  bg: "rgba(245,197,24,0.15)"  },
+    EN_ALMACEN:    { label: "En almacén",    icon: <Factory size={20} />, color: "#127369",  bg: "rgba(18,115,105,0.15)"  },
+    EN_TRANSITO:   { label: "En tránsito",   icon: <Bus size={20} />, color: "#127369",  bg: "rgba(18,115,105,0.15)"  },
+    EN_DESTINO:    { label: "En destino",    icon: <MapPin size={20} />, color: "#1d4ed8",  bg: "rgba(59,130,246,0.15)"  },
+    LISTO_ENTREGA: { label: "Listo entrega", icon: <Mailbox size={20} />, color: "#127369",  bg: "rgba(18,115,105,0.15)"  },
+    ENTREGADO:     { label: "Entregado",     icon: <CheckCircle2 size={20} />, color: "#15803d",  bg: "rgba(34,197,94,0.15)"   },
+    DEVUELTO:      { label: "Devuelto",      icon: <Undo2 size={20} />, color: "#7e22ce",  bg: "rgba(168,85,247,0.15)"  },
+    PERDIDO:       { label: "Perdido",       icon: <AlertTriangle size={20} />, color: "#dc2626",  bg: "rgba(239,68,68,0.15)"   },
   };
 
   const buscar = async () => {
@@ -235,7 +237,7 @@ function ModalTracking({ onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 500 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-badge">📦</div>
+          <div className="modal-badge"><Package size={24} /></div>
           <div>
             <div className="modal-title">Rastrear Encomienda</div>
             <div className="modal-subtitle">Consulta el estado de tu envío</div>
@@ -354,6 +356,7 @@ function ModalTracking({ onClose }) {
 function LandingPage({ onIrLogin }) {
   const [origen,        setOrigen]        = useState("Ayacucho");
   const [destinoSel,    setDestinoSel]    = useState(null);
+  const [fecha,         setFecha]         = useState("");
   const [modalDestino,  setModalDestino]  = useState(null);
   const [showTracking,  setShowTracking]  = useState(false);
   const { session } = useAuth();
@@ -407,7 +410,7 @@ function LandingPage({ onIrLogin }) {
               }
             }}
           >
-            🎫 {session && session.rol === "ROLE_CLIENTE" ? "Mis reservas" : "Reservar pasaje"}
+            <Ticket size={18} style={{ marginRight: 6 }} /> {session && session.rol === "ROLE_CLIENTE" ? "Mis reservas" : "Reservar pasaje"}
           </button>
 
           {session ? (
@@ -458,9 +461,9 @@ function LandingPage({ onIrLogin }) {
           <p>Conectando los Andes con seguridad y puntualidad</p>
           <div className="search-box">
             <select value={origen} onChange={(e) => setOrigen(e.target.value)}>
-              <option>Ayacucho</option>
-              <option>Abancay</option>
-              <option>Arequipa</option>
+              <option value="Ayacucho">Ayacucho</option>
+              <option value="Abancay">Abancay</option>
+              <option value="Arequipa">Arequipa</option>
             </select>
             <div className="search-divider" />
             <select value={destinoSel || ""} onChange={(e) => setDestinoSel(e.target.value || null)}>
@@ -469,7 +472,17 @@ function LandingPage({ onIrLogin }) {
                 <option key={d.nombre} value={d.nombre}>{d.nombre}</option>
               ))}
             </select>
-            <button className="btn-buscar">Buscar</button>
+            <div className="search-divider" />
+            <input 
+              type="date" 
+              value={fecha} 
+              onChange={(e) => setFecha(e.target.value)} 
+              title="Fecha de ida"
+              style={{ border: "none", outline: "none", background: "transparent", color: "var(--verde-oscuro)", fontFamily: "inherit", padding: "0.5rem" }} 
+            />
+            <button className="btn-buscar" onClick={() => {
+              navigate(`/pasajes?origen=${origen}&destino=${destinoSel || ''}&fecha=${fecha}`);
+            }}><Search size={20} /> Buscar</button>
           </div>
         </div>
       </section>
@@ -485,21 +498,21 @@ function LandingPage({ onIrLogin }) {
       {/* ── ACCESOS RÁPIDOS ── */}
       <div className="acceso-rapido">
         <button className="btn-acceso" onClick={() => setShowTracking(true)}>
-          <span>📦</span> Rastrear encomienda
+          <span><Package size={20} /></span> Rastrear encomienda
         </button>
         <button className="btn-acceso" onClick={() => navigate("/pasajes")}>
-          <span>🎫</span> Comprar pasaje
+          <span><Ticket size={20} /></span> Comprar pasaje
         </button>
         {!session && (
           <button className="btn-acceso" onClick={() => navigate("/registrar")}>
-            <span>📝</span> Crear cuenta
+            <span><FileText size={20} /></span> Crear cuenta
           </button>
         )}
         <button
           className="btn-acceso"
           onClick={() => document.getElementById("contacto")?.scrollIntoView({ behavior:"smooth" })}
         >
-          <span>📞</span> Contacto
+          <span><Phone size={20} /></span> Contacto
         </button>
       </div>
 
@@ -520,7 +533,7 @@ function LandingPage({ onIrLogin }) {
                     e.target.parentNode.style.background = `${d.color}33`;
                   }}
                 />
-                {d.emoji && <span className="destino-emoji-overlay">{d.emoji}</span>}
+                {d.EmojiIcon && <span className="destino-emoji-overlay"><d.EmojiIcon /></span>}
               </div>
               <div className="destino-body">
                 <div className="destino-name">{d.nombre}</div>
@@ -541,11 +554,11 @@ function LandingPage({ onIrLogin }) {
         </p>
         <div className="valores">
           {[
-            { icon: "🛡️", name: "Seguridad",    desc: "Flota moderna con mantenimiento constante"  },
-            { icon: "⏰", name: "Puntualidad",  desc: "Cumplimos con los horarios establecidos"     },
-            { icon: "💺", name: "Confort",      desc: "Asientos reclinables y espaciosos"           },
-            { icon: "📍", name: "Cobertura",    desc: "Llegamos a destinos difíciles de acceder"    },
-            { icon: "📦", name: "Encomiendas",  desc: "Envíos seguros con seguimiento en tiempo real"},
+            { icon: <Shield size={28} />, name: "Seguridad",    desc: "Flota moderna con mantenimiento constante"  },
+            { icon: <Clock size={28} />, name: "Puntualidad",  desc: "Cumplimos con los horarios establecidos"     },
+            { icon: <User size={28} />, name: "Confort",      desc: "Asientos reclinables y espaciosos"           },
+            { icon: <MapPin size={28} />, name: "Cobertura",    desc: "Llegamos a destinos difíciles de acceder"    },
+            { icon: <Package size={28} />, name: "Encomiendas",  desc: "Envíos seguros con seguimiento en tiempo real"},
           ].map((v) => (
             <div className="valor" key={v.name}>
               <span className="valor-icon">{v.icon}</span>
@@ -618,8 +631,8 @@ function RutaProtegida({ children, roles }) {
   if (!session) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(session.rol)) {
     if (session.rol === "ROLE_CLIENTE") return <Navigate to="/pasajes" replace />;
-    if (["ROLE_ADMIN", "ROLE_CAJERO", "ROLE_CHOFER"].includes(session.rol)) 
-      return <Navigate to="/admin" replace />;
+    if (session.rol === "ROLE_CHOFER") return <Navigate to="/chofer" replace />;
+    if (["ROLE_ADMIN", "ROLE_CAJERO"].includes(session.rol)) return <Navigate to="/admin" replace />;
     return <Navigate to="/" replace />;
   }
   return children;
@@ -640,19 +653,19 @@ function AppRouter() {
       {/* Login */}
       <Route path="/login" element={
         session ? (
-          session.rol === "ROLE_CLIENTE" 
-            ? <Navigate to="/pasajes" replace />
-            : <Navigate to="/admin" replace />
-        ) : <Login onIrRegistro={() => navigate("/registrar")} />
+          session.rol === "ROLE_CLIENTE" ? <Navigate to="/pasajes" replace /> :
+          session.rol === "ROLE_CHOFER"  ? <Navigate to="/chofer" replace /> :
+          <Navigate to="/admin" replace />
+        ) : <Login />
       } />
 
       {/* Registro */}
       <Route path="/registrar" element={
         session ? <Navigate to="/pasajes" replace /> : (
           <div className="login-wrap">
-            <LeftPanel tab="cliente" />
+            <LeftPanel />
             <div className="login-right">
-              <div className="login-box login-box--registro">
+              <div className="login-box" style={{maxWidth:460}}>
                 <RegisterForm onVolver={() => navigate("/login")} />
               </div>
             </div>
@@ -665,7 +678,7 @@ function AppRouter() {
 
       {/* Panel admin */}
       <Route path="/admin" element={
-        <RutaProtegida roles={["ROLE_ADMIN", "ROLE_CAJERO", "ROLE_CHOFER"]}>
+        <RutaProtegida roles={["ROLE_ADMIN", "ROLE_CAJERO"]}>
           <AdminDashboard />
         </RutaProtegida>
       } />
@@ -674,6 +687,13 @@ function AppRouter() {
       <Route path="/cliente" element={
         <RutaProtegida roles={["ROLE_CLIENTE"]}>
           <ClienteDashboard />
+        </RutaProtegida>
+      } />
+
+      {/* Panel chofer */}
+      <Route path="/chofer" element={
+        <RutaProtegida roles={["ROLE_CHOFER"]}>
+          <ChoferDashboard />
         </RutaProtegida>
       } />
 

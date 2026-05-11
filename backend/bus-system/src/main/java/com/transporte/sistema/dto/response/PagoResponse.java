@@ -14,4 +14,6 @@ public class PagoResponse {
     private MetodoPago metodo;
     private EstadoPago estado;
     private String referencia;
-}   
+    private String cliente;
+    private String referenciaEntidad;
+}

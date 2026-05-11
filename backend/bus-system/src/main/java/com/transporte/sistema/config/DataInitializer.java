@@ -46,6 +46,7 @@ public class DataInitializer implements CommandLineRunner {
         crearRoles();
         crearSucursalInicial();
         crearAdminInicial();
+        crearPersonalInicial();
         crearViajesDePrueba();
     }
 
@@ -68,12 +69,31 @@ public class DataInitializer implements CommandLineRunner {
     // ── Sucursal matriz ──────────────────────────────────────────────
 
     private void crearSucursalInicial() {
+        // Crear sucursales de Ayacucho si no existen (por código)
+        java.util.List<Object[]> sucData = java.util.List.of(
+            new Object[]{"AYA-01","Terminal Huamanga",      "Huamanga",    "Huamanga",      "Ayacucho","Jr. Libertad 120"},
+            new Object[]{"VIL-01","Terminal Vilcas Huamán", "Vilcas Huaman","Vilcas Huamán","Ayacucho","Plaza Principal s/n"},
+            new Object[]{"ACC-01","Agencia Accomarca",       "Accomarca",   "Vilcas Huamán","Ayacucho","Av. Principal s/n"},
+            new Object[]{"HUA-01","Terminal Huarcas",        "Huarcas",     "Huamanga",     "Ayacucho","Jr. San Martín 45"},
+            new Object[]{"CAN-01","Agencia Canaria",         "Canaria",     "Víctor Fajardo","Ayacucho","Jr. Grau 12"},
+            new Object[]{"FAJ-01","Terminal Huancapi",       "Huancapi",    "Víctor Fajardo","Ayacucho","Plaza de Armas s/n"}
+        );
+        for (Object[] d : sucData) {
+            String codigo = (String) d[0];
+            if (!sucursalRepository.existsByCodigo(codigo)) {
+                sucursalRepository.save(Sucursal.builder()
+                    .codigo(codigo).nombre((String)d[1]).ciudad((String)d[2])
+                    .provincia((String)d[3]).departamento((String)d[4])
+                    .direccion((String)d[5]).esTerminal(true).activo(true).build());
+                log.info("Sucursal creada: {} - {}", codigo, d[1]);
+            }
+        }
         if (sucursalRepository.count() == 0) {
             sucursalRepository.save(Sucursal.builder()
                     .codigo("MATRIZ")
-                    .nombre("Terminal Principal - Lima")
-                    .ciudad("Lima")
-                    .departamento("Lima")
+                    .nombre("Terminal Principal - Huamanga")
+                    .ciudad("Huamanga")
+                    .departamento("Ayacucho")
                     .esTerminal(true)
                     .activo(true)
                     .build());
@@ -107,6 +127,45 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Usuario admin creado: username=admin / password=admin123");
             log.warn("CAMBIE LA CONTRASENA DEL ADMIN EN PRODUCCION");
         }
+    }
+
+    // ── Personal inicial (cajero y choferes) ────────────────────────────────
+    private void crearPersonalInicial() {
+        if (usuarioRepository.count() >= 3) return; // ya hay suficientes
+        Rol rolCajero  = rolRepository.findByNombre(RolNombre.ROLE_CAJERO).orElse(null);
+        Rol rolChofer  = rolRepository.findByNombre(RolNombre.ROLE_CHOFER).orElse(null);
+        Sucursal suc   = sucursalRepository.findAll().stream().filter(s -> Boolean.TRUE.equals(s.getActivo())).findFirst().orElse(null);
+        if (rolCajero == null || rolChofer == null || suc == null) return;
+
+        if (!usuarioRepository.existsByUsername("cajero1")) {
+            usuarioRepository.save(Usuario.builder().username("cajero1")
+                .passwordHash(passwordEncoder.encode("cajero123"))
+                .nombres("María").apellidos("Quispe Huamán").email("cajero@intiwatana.pe")
+                .telefono("966001122").dniRuc("12345678")
+                .rol(rolCajero).sucursal(suc).primerLogin(false).activo(true).build());
+        }
+        if (!usuarioRepository.existsByUsername("chofer1")) {
+            usuarioRepository.save(Usuario.builder().username("chofer1")
+                .passwordHash(passwordEncoder.encode("chofer123"))
+                .nombres("Carlos").apellidos("Flores Condori").email("chofer1@intiwatana.pe")
+                .telefono("955002233").dniRuc("87654321")
+                .rol(rolChofer).sucursal(suc).primerLogin(false).activo(true).build());
+        }
+        if (!usuarioRepository.existsByUsername("chofer2")) {
+            usuarioRepository.save(Usuario.builder().username("chofer2")
+                .passwordHash(passwordEncoder.encode("chofer123"))
+                .nombres("Pedro").apellidos("Condori Mamani").email("chofer2@intiwatana.pe")
+                .telefono("944003344").dniRuc("76543210")
+                .rol(rolChofer).sucursal(suc).primerLogin(false).activo(true).build());
+        }
+        if (!usuarioRepository.existsByUsername("chofer3")) {
+            usuarioRepository.save(Usuario.builder().username("chofer3")
+                .passwordHash(passwordEncoder.encode("chofer123"))
+                .nombres("Luis").apellidos("Huamán Palomino").email("chofer3@intiwatana.pe")
+                .telefono("933004455").dniRuc("65432109")
+                .rol(rolChofer).sucursal(suc).primerLogin(false).activo(true).build());
+        }
+        log.info("Personal inicial creado (cajero1, chofer1-3)");
     }
 
     // ── Viajes de prueba ─────────────────────────────────────────────

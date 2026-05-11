@@ -14,9 +14,11 @@ public interface ViajeService {
     ViajeResponse actualizar(Long id, ViajeRequest request);
     List<ViajeResponse> listar();
     ViajeResponse obtenerPorId(Long id);
-    Page<ViajeResponse> buscarDisponibles(Long origenId, Long destinoId, LocalDateTime desde, Pageable pageable);
+    Page<ViajeResponse> buscarDisponibles(
+            Long origenId, Long destinoId, LocalDateTime desde, LocalDateTime hasta, Pageable pageable);
     List<AsientoResponse> obtenerAsientos(Long viajeId);
     ViajeResponse cambiarEstado(Long id, EstadoViaje nuevoEstado);
     Page<ViajeResponse> listarPorChofer(Long choferId, Pageable pageable);
+    List<ViajeResponse> listarPorChoferIdList(Long choferId);
     void eliminar(Long id);
 }

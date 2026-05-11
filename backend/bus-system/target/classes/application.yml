@@ -10,7 +10,7 @@ spring:
     name: sistema-transporte
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/transporte_db
+    url: jdbc:postgresql://localhost:5432/transporte_bd
     username: postgres
     password: 2007
     driver-class-name: org.postgresql.Driver

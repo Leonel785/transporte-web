@@ -9,7 +9,8 @@ public class UsuarioRequest {
     @NotBlank @Size(min = 4, max = 80)
     private String username;
 
-    @NotBlank @Size(min = 6, max = 100)
+    /** Obligatorio al crear (POST), opcional al editar (PUT). */
+    @Size(min = 6, max = 100)
     private String password;
 
     @NotBlank @Size(max = 150)
@@ -24,7 +25,6 @@ public class UsuarioRequest {
     @Size(max = 20)
     private String telefono;
 
-    @NotNull
     private Long rolId;
 
     private Long sucursalId;

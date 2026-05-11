@@ -57,12 +57,22 @@ public class SecurityConfig {
     .requestMatchers("/api/v1/auth/**").permitAll()
     .requestMatchers(HttpMethod.POST, "/api/v1/clientes/registro").permitAll()
 
-    // 🔥 ESTA ES LA CLAVE
+    // Viajes públicos
     .requestMatchers("/api/v1/viajes/**").permitAll()
 
+    // Sucursales: acceso público total de lectura (selector de pasajes)
     .requestMatchers(HttpMethod.GET, "/api/v1/sucursales").permitAll()
+    .requestMatchers(HttpMethod.GET, "/api/v1/sucursales/**").permitAll()
+
     .requestMatchers(HttpMethod.GET, "/api/v1/rutas/**").permitAll()
     .requestMatchers(HttpMethod.GET, "/api/v1/encomiendas/tracking/**").permitAll()
+
+    // Roles: lectura pública (necesario para formulario de usuarios en admin)
+    .requestMatchers(HttpMethod.GET, "/api/v1/roles").permitAll()
+
+    // Chofer: acceso a sus viajes y asientos
+    .requestMatchers(HttpMethod.GET,   "/api/v1/viajes/mis-viajes").hasRole("CHOFER")
+    .requestMatchers(HttpMethod.PATCH, "/api/v1/viajes/*/estado").hasAnyRole("ADMIN","CHOFER")
 
     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
     .anyRequest().authenticated()

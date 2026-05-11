@@ -21,7 +21,6 @@ public class SucursalController {
     private final SucursalService sucursalService;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<SucursalResponse>> listar() {
         return ResponseEntity.ok(sucursalService.listarActivas());
     }
