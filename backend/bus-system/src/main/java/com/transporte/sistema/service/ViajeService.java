@@ -1,0 +1,24 @@
+package com.transporte.sistema.service;
+
+import com.transporte.sistema.dto.request.ViajeRequest;
+import com.transporte.sistema.dto.response.AsientoResponse;
+import com.transporte.sistema.dto.response.ViajeResponse;
+import com.transporte.sistema.enums.EstadoViaje;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public interface ViajeService {
+    ViajeResponse crear(ViajeRequest request);
+    ViajeResponse actualizar(Long id, ViajeRequest request);
+    List<ViajeResponse> listar();
+    ViajeResponse obtenerPorId(Long id);
+    Page<ViajeResponse> buscarDisponibles(
+            Long origenId, Long destinoId, LocalDateTime desde, LocalDateTime hasta, Pageable pageable);
+    List<AsientoResponse> obtenerAsientos(Long viajeId);
+    ViajeResponse cambiarEstado(Long id, EstadoViaje nuevoEstado);
+    Page<ViajeResponse> listarPorChofer(Long choferId, Pageable pageable);
+    List<ViajeResponse> listarPorChoferIdList(Long choferId);
+    void eliminar(Long id);
+}
